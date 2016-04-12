@@ -67,6 +67,7 @@ public class myWhats {
 		if (valid == -10)
 			pwd = retryPwd(sc);
 
+		//guarda a key
 		System.setProperty("javax.net.ssl.trustStore", "myClient.keyStore");
 		
 		//Ligacao socket
