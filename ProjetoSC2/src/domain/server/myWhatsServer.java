@@ -11,7 +11,20 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.util.Arrays;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
@@ -38,10 +51,10 @@ public class myWhatsServer {
 	@SuppressWarnings("resource")
 	public void startServer (int port){
 		ServerSocket ss = null;
-		
+
 		System.setProperty("javax.net.ssl.keyStore", "myServer.keystore");
 		System.setProperty("javax.net.ssl.keyStorePassword", "littlestars");
-		
+
 		try {
 			ServerSocketFactory ssf = SSLServerSocketFactory.getDefault( );
 			ss = ssf.createServerSocket(port);
@@ -86,12 +99,46 @@ public class myWhatsServer {
 				inStream = new ObjectInputStream(socket.getInputStream());
 				int numArgs;
 				int confirm;
-				String username,password;
+				byte [] ciphuserName;
+				String username;
+				byte[] ciphpwd;
+				String password;
+				byte [] wrapKey;
+				SecretKey key;
+				byte [] ciphAux;
+				byte [] deciphAux;
 				try {
+					//Cria uma cifra assimetrica
+					KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+					kpg.initialize(2048); //2048 bits
+					KeyPair kp = kpg.generateKeyPair( );
+					PublicKey publicK = kp.getPublic();
+					PrivateKey privateK = kp.getPrivate();
+					
+					//envia ao cliente a chave publica
+					outStream.writeObject(publicK);
+					
+					//recebe a key do cliente cifrada com a publicK do servidor
+					wrapKey = (byte[]) inStream.readObject();
+					
+					Cipher c = Cipher.getInstance("RSA");
+				    c.init(Cipher.UNWRAP_MODE, privateK);
+				    key = (SecretKey) c.unwrap(wrapKey, "AES", Cipher.SECRET_KEY);
+				    
+					ciphuserName = (byte []) inStream.readObject();					
+					ciphpwd = (byte []) inStream.readObject();
 
+					c = Cipher.getInstance("AES");
+					c.init(Cipher.DECRYPT_MODE, key);
 
-					username = (String) inStream.readObject();
-					password = (String) inStream.readObject();
+					//array de bytes do username decifrado
+					deciphAux = c.doFinal(ciphuserName);
+					username = new String(deciphAux);
+					
+					//array de bytes da pwd decifrada
+					deciphAux = c.doFinal(ciphpwd);
+					password = new String(deciphAux);
+
 					String pwAux;
 					//Primeiro verifica que se nao houver user ele eh criado
 					if((pwAux = skell.isUser(username)) == null){
@@ -119,18 +166,24 @@ public class myWhatsServer {
 							}
 							i--;
 							outStream.writeObject(PW_ERROR);
-							password = (String) inStream.readObject();
+							ciphpwd = (byte[]) inStream.readObject();
+							deciphAux = c.doFinal(ciphpwd);
+							password = new String (deciphAux);
 						}
 					}
 					outStream.writeObject(1);//correu tudo bem com a autenticacao
 
-					numArgs = (int) inStream.readObject();
-
+					//recebe o bytearray do numero de args
+					ciphAux = (byte[]) inStream.readObject();
+					deciphAux = c.doFinal(ciphAux);
+					numArgs = Integer.parseInt(new String(deciphAux));
 
 					String [] arguments = new String [numArgs];
 					//recepcao de parametros do client
 					for(int i = 0; i < numArgs; i++){
-						arguments [i]= (String) inStream.readObject();
+						ciphAux = (byte[]) inStream.readObject();
+						deciphAux = c.doFinal(ciphAux);
+						arguments [i]= new String(deciphAux);
 					}
 
 					//Se a recepcao de parametros nao for fiavel
@@ -231,7 +284,7 @@ public class myWhatsServer {
 					}
 					outStream.writeObject(confirm);
 
-				}catch (ClassNotFoundException e1) {
+				}catch (ClassNotFoundException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e1) {
 					e1.printStackTrace();
 				}	
 

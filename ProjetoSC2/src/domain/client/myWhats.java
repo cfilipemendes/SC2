@@ -10,9 +10,18 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -31,7 +40,7 @@ public class myWhats {
 	private final static int REG_ERROR = -68;
 	private final static int PACKET_SIZE = 1024;
 
-	public static void main (String [] args) throws UnknownHostException, IOException, ClassNotFoundException{
+	public static void main (String [] args) throws UnknownHostException, IOException, ClassNotFoundException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException{
 
 		if (args.length < 2){
 			System.err.println(Errors.errorConfirm(-2));
@@ -69,12 +78,12 @@ public class myWhats {
 
 		//guarda a key
 		System.setProperty("javax.net.ssl.trustStore", "myClient.keyStore");
-		
+
 		//Ligacao socket
-		
+
 		SocketFactory sf = SSLSocketFactory.getDefault( );
 		soc = sf.createSocket(ip, Integer.parseInt(port));
-		
+
 		//Abertura das Streams
 		in = new ObjectInputStream(soc.getInputStream());
 		out = new ObjectOutputStream(soc.getOutputStream());
@@ -99,9 +108,34 @@ public class myWhats {
 			}
 		}
 
+		//gerar uma chave aleatória para utilizar com o AES
+		KeyGenerator kg = KeyGenerator.getInstance("AES");
+		kg.init(128);
+		SecretKey key = kg.generateKey();
+		
+		//recebe a chave publica do servidor
+		PublicKey publicK = (PublicKey) in.readObject();
+		
+		//wrap da publicK na key
+		Cipher c = Cipher.getInstance("RSA");
+	    c.init(Cipher.WRAP_MODE, publicK);
+	    byte [] wrapKey = c.wrap(key);
+		
+		//cifra a key utilizando a public key do servidor
+		
+		
+		c = Cipher.getInstance("AES");
+	    c.init(Cipher.ENCRYPT_MODE, key);
+	    
+	    byte[] ciphAux = c.doFinal(userName.getBytes());
+		
 		//envia o username
-		out.writeObject(userName);
-		out.writeObject(pwd);
+	    out.writeObject(wrapKey);
+		out.writeObject(ciphAux);
+		
+		ciphAux = c.doFinal(pwd.getBytes());
+		
+		out.writeObject(ciphAux);
 		int fromServer = (int) in.readObject();
 		int tries = 2;
 		while(fromServer == PW_ERROR){
@@ -113,7 +147,8 @@ public class myWhats {
 			System.err.print("Password ERRADA!\nTem " + tries + " tentativa(s)!\n");
 			tries --;
 			pwd = retryPwd(sc);
-			out.writeObject(pwd);
+			ciphAux = c.doFinal(pwd.getBytes());
+			out.writeObject(ciphAux);
 			fromServer = (int) in.readObject();
 		}
 		if (fromServer == CHAR_ERROR){
@@ -128,10 +163,12 @@ public class myWhats {
 		}
 
 		//envia o numero de argumentos
-		out.writeObject(argsFinal.length);
+		ciphAux = c.doFinal(Integer.toString(argsFinal.length).getBytes());
+		out.writeObject(ciphAux);
 		//envia todos os argumentos
 		for (int i = 0; i < argsFinal.length; i++){
-			out.writeObject(argsFinal[i]);
+			ciphAux = c.doFinal(argsFinal[i].getBytes());
+			out.writeObject(ciphAux);
 		}
 
 		//verifica se os dados foram bem recebidos pelo servidor
@@ -141,7 +178,7 @@ public class myWhats {
 			closeCon();
 			return;
 		}
-		
+
 		//envio de ficheiro
 		if(argsFinal.length >= 1){
 			if (argsFinal[0].equals("-f")){
@@ -412,7 +449,7 @@ public class myWhats {
 		}
 		System.out.println(sb.toString());
 	}
-	
+
 	/**
 	 * imprime na consola do cliente o -r com 0 argumentos
 	 * @param received nome dos ficheiros e data
