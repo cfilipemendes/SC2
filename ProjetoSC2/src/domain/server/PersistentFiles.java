@@ -5,7 +5,6 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -30,18 +29,20 @@ public class PersistentFiles {
 	private String usersDir;
 	private Date data;
 	private SimpleDateFormat sdf;
+	private String keysDir;
 
 	/**
-	 * construtor de PresistentFiles
+	 * construtor de PersistentFiles
 	 * @param usersFile nome do ficheiro de texto dos users e das suas pws
 	 * @param groupsDir nome da directoria dos grupos
 	 * @param usersDir nome da directoria dos clientes
 	 */
-	public PersistentFiles(String usersFile, String groupsDir, String usersDir) {
+	public PersistentFiles(String usersFile, String groupsDir, String usersDir, String keysDir) {
 		users = new File(usersFile + ".txt");
 		sdf = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss");
 		this.groupsDir = groupsDir;
 		this.usersDir = usersDir;
+		this.keysDir = keysDir;
 		if(!users.exists())
 			try {
 				users.createNewFile();
@@ -52,6 +53,9 @@ public class PersistentFiles {
 		if (!dir.exists())
 			dir.mkdir();
 		dir = new File(groupsDir);
+		if (!dir.exists())
+			dir.mkdir();
+		dir = new File(keysDir);
 		if (!dir.exists())
 			dir.mkdir();
 	}

@@ -11,7 +11,10 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Scanner;
 import java.util.regex.Pattern;
@@ -39,6 +42,7 @@ public class myWhats {
 	private final static int ARGS_ERROR = -67;
 	private final static int REG_ERROR = -68;
 	private final static int PACKET_SIZE = 1024;
+
 
 	public static void main (String [] args) throws UnknownHostException, IOException, ClassNotFoundException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException{
 
@@ -112,30 +116,40 @@ public class myWhats {
 		KeyGenerator kg = KeyGenerator.getInstance("AES");
 		kg.init(128);
 		SecretKey key = kg.generateKey();
+
+		//gerar uma cifra assimetrica
+		KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+		kpg.initialize(2048); //2048 bits
+		KeyPair kp = kpg.generateKeyPair( );
+		PublicKey publicK = kp.getPublic();
+		PrivateKey privateK = kp.getPrivate();
 		
+		//chave publica do cliente em array de bytes
+		byte[]keyEncoded;
+
 		//recebe a chave publica do servidor
-		PublicKey publicK = (PublicKey) in.readObject();
-		
+		PublicKey servPubK = (PublicKey) in.readObject();
+
 		//wrap da publicK na key
 		Cipher c = Cipher.getInstance("RSA");
-	    c.init(Cipher.WRAP_MODE, publicK);
-	    byte [] wrapKey = c.wrap(key);
-		
-		//cifra a key utilizando a public key do servidor
-		
-		
+		c.init(Cipher.WRAP_MODE, servPubK);
+		byte [] wrapKey = c.wrap(key);		
+
 		c = Cipher.getInstance("AES");
-	    c.init(Cipher.ENCRYPT_MODE, key);
-	    
-	    byte[] ciphAux = c.doFinal(userName.getBytes());
-		
+		c.init(Cipher.ENCRYPT_MODE, key);
+
+		byte[] ciphAux = c.doFinal(userName.getBytes());
+
 		//envia o username
-	    out.writeObject(wrapKey);
+		out.writeObject(wrapKey);
 		out.writeObject(ciphAux);
-		
+
 		ciphAux = c.doFinal(pwd.getBytes());
-		
+
 		out.writeObject(ciphAux);
+
+		File fAux = new File (new File(".").getAbsolutePath() + "//" + userName + "Private.key");
+
 		int fromServer = (int) in.readObject();
 		int tries = 2;
 		while(fromServer == PW_ERROR){
@@ -150,6 +164,13 @@ public class myWhats {
 			ciphAux = c.doFinal(pwd.getBytes());
 			out.writeObject(ciphAux);
 			fromServer = (int) in.readObject();
+			if (fromServer == 56){
+				out.writeObject(publicK);
+				FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + userName + "Private.key");
+				ObjectOutputStream oos = new ObjectOutputStream(fos);
+				oos.writeObject(privateK);
+				oos.close();
+			}
 		}
 		if (fromServer == CHAR_ERROR){
 			System.err.println(Errors.errorConfirm(CHAR_ERROR));
@@ -161,12 +182,46 @@ public class myWhats {
 			closeCon();
 			return;
 		}
+		//Se o server for criar o utilizador pela primeira vez
+		//ou se nao tiver a public key guardada
+		//ou se o cliente nao tiver a private key guardada
+		boolean temp=false;
+		if (fromServer == 55 || fromServer == 56 || (temp=!fAux.exists())){
+			if (temp)
+				out.writeObject(57);//informa o servidor que vai enviar uma publickey do cliente
+			out.writeObject(publicK);
+			FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + userName + "Private.key");
+			ObjectOutputStream oos = new ObjectOutputStream(fos);
+			oos.writeObject(privateK);
+			oos.close();
+		}
+		else if (fromServer == 58){
+			keyEncoded = (byte[]) in.readObject();
+		}
+		if(!temp)
+			//correu tudo bem com a autenticacao no cliente
+			out.writeObject(1);
+	
 
+		
+		
+		///////////////////////////////////////////////////////////////////
+		//////////////////ACABOU O REGISTO E AUTENTICACAO//////////////////
+		///////////////////////////////////////////////////////////////////
+		/////////////////COMECOU A TRANSFERENCIA DE DADOS//////////////////
+		///////////////////////////////////////////////////////////////////
+		
+		
+		
 		//envia o numero de argumentos
 		ciphAux = c.doFinal(Integer.toString(argsFinal.length).getBytes());
 		out.writeObject(ciphAux);
 		//envia todos os argumentos
 		for (int i = 0; i < argsFinal.length; i++){
+			//encriptar a mensagem com a cifra assimetrica
+			if (argsFinal[0] == "-m" && i == 2){
+
+			}
 			ciphAux = c.doFinal(argsFinal[i].getBytes());
 			out.writeObject(ciphAux);
 		}

@@ -15,8 +15,8 @@ public class server_skell {
 	 * @param groupsDir nome da pasta de grupos
 	 * @param usersDir nome da pasta de utilizadores
 	 */
-	public server_skell (String usersFile, String groupsDir, String usersDir){
-		files = new PersistentFiles(usersFile,groupsDir,usersDir);
+	public server_skell (String usersFile, String groupsDir, String usersDir, String keysDir){
+		files = new PersistentFiles(usersFile,groupsDir,usersDir,keysDir);
 	}
 
 	/**

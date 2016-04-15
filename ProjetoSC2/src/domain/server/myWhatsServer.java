@@ -1,5 +1,10 @@
 package domain.server;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+
+
 /***************************************************************************
  *  
  *
@@ -12,14 +17,11 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.InvalidKeyException;
-import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.util.Arrays;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -28,8 +30,6 @@ import javax.crypto.SecretKey;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
-import domain.server.myWhatsServer.ServerThread;
-
 //Servidor do servico myWhatsServer
 
 public class myWhatsServer {
@@ -37,6 +37,7 @@ public class myWhatsServer {
 	private final String USERS_PWS_FILE = "usersAndPws";
 	private final String GROUPS_DIR = "groups";
 	private final String USERS_DIR = "users";
+	private final String KEYS_DIR = "keys";
 	private final int CHAR_ERROR = -65;
 	private final int PW_ERROR = -66;
 	private final int ARGS_ERROR = -67;
@@ -48,7 +49,6 @@ public class myWhatsServer {
 		server.startServer(Integer.parseInt(args[0]));
 	}
 
-	@SuppressWarnings("resource")
 	public void startServer (int port){
 		ServerSocket ss = null;
 
@@ -64,7 +64,7 @@ public class myWhatsServer {
 		}
 
 		//cria um skell do servidor
-		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR);
+		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR, KEYS_DIR);
 
 		while(true) {
 			try {
@@ -114,17 +114,17 @@ public class myWhatsServer {
 					KeyPair kp = kpg.generateKeyPair( );
 					PublicKey publicK = kp.getPublic();
 					PrivateKey privateK = kp.getPrivate();
-					
+
 					//envia ao cliente a chave publica
 					outStream.writeObject(publicK);
-					
+
 					//recebe a key do cliente cifrada com a publicK do servidor
 					wrapKey = (byte[]) inStream.readObject();
-					
+
 					Cipher c = Cipher.getInstance("RSA");
-				    c.init(Cipher.UNWRAP_MODE, privateK);
-				    key = (SecretKey) c.unwrap(wrapKey, "AES", Cipher.SECRET_KEY);
-				    
+					c.init(Cipher.UNWRAP_MODE, privateK);
+					key = (SecretKey) c.unwrap(wrapKey, "AES", Cipher.SECRET_KEY);
+
 					ciphuserName = (byte []) inStream.readObject();					
 					ciphpwd = (byte []) inStream.readObject();
 
@@ -134,10 +134,12 @@ public class myWhatsServer {
 					//array de bytes do username decifrado
 					deciphAux = c.doFinal(ciphuserName);
 					username = new String(deciphAux);
-					
+
 					//array de bytes da pwd decifrada
 					deciphAux = c.doFinal(ciphpwd);
 					password = new String(deciphAux);
+
+					File fAux = new File (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
 
 					String pwAux;
 					//Primeiro verifica que se nao houver user ele eh criado
@@ -148,7 +150,13 @@ public class myWhatsServer {
 								closeThread();
 								return;
 							}
+							outStream.writeObject(55);//vai criar um utilizador
 							skell.createUser(username,password);
+							PublicKey clientPubK = (PublicKey) inStream.readObject();
+							FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
+							ObjectOutputStream oos = new ObjectOutputStream(fos);
+							oos.writeObject(clientPubK);
+							oos.close();
 						}
 						else{
 							outStream.writeObject(REG_ERROR);
@@ -170,8 +178,50 @@ public class myWhatsServer {
 							deciphAux = c.doFinal(ciphpwd);
 							password = new String (deciphAux);
 						}
+						//se o servidor tiver feito o login do cliente mas nao tiver a chave publica do mesmo
+						if (!fAux.exists()){
+							outStream.writeObject(56);
+							PublicKey clientPubK = (PublicKey) inStream.readObject();
+							FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
+							ObjectOutputStream oos = new ObjectOutputStream(fos);
+							oos.writeObject(clientPubK);
+							oos.close();
+						}
+						else{
+							outStream.writeObject(58);
+							byte[] keyEncoded;
+							FileInputStream fis = new FileInputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
+						    ObjectInputStream ois = new ObjectInputStream(fis);
+						    keyEncoded = ois.readObject().toString().getBytes();
+						    outStream.writeObject(keyEncoded);
+						}
+
 					}
-					outStream.writeObject(1);//correu tudo bem com a autenticacao
+
+
+					outStream.writeObject(1);//correu tudo bem com a autenticacao no servidor
+
+
+
+
+					///////////////////////////////////////////////////////////////////
+					//////////////////ACABOU O REGISTO E AUTENTICACAO//////////////////
+					///////////////////////////////////////////////////////////////////
+					/////////////////COMECOU A TRANSFERENCIA DE DADOS//////////////////
+					///////////////////////////////////////////////////////////////////
+
+
+
+
+					int x = (int) inStream.readObject();
+					//nao existe privatekey no cliente e vai ser enviada uma nova publickey do mesmo
+					if (x == 57){
+						PublicKey clientPubK = (PublicKey) inStream.readObject();
+						FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
+						ObjectOutputStream oos = new ObjectOutputStream(fos);
+						oos.writeObject(clientPubK);
+						oos.close();
+					}
 
 					//recebe o bytearray do numero de args
 					ciphAux = (byte[]) inStream.readObject();
@@ -184,6 +234,10 @@ public class myWhatsServer {
 						ciphAux = (byte[]) inStream.readObject();
 						deciphAux = c.doFinal(ciphAux);
 						arguments [i]= new String(deciphAux);
+						//recebe a mensagem do cliente cifrada
+						if (arguments[0] == "-m" && i == 2){
+
+						}
 					}
 
 					//Se a recepcao de parametros nao for fiavel
