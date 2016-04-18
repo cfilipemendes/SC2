@@ -38,6 +38,7 @@ public class myWhatsServer {
 	private final String GROUPS_DIR = "groups";
 	private final String USERS_DIR = "users";
 	private final String KEYS_DIR = "keys";
+	private final int SALT_ERROR = -64;
 	private final int CHAR_ERROR = -65;
 	private final int PW_ERROR = -66;
 	private final int ARGS_ERROR = -67;
@@ -125,8 +126,8 @@ public class myWhatsServer {
 					c.init(Cipher.UNWRAP_MODE, privateK);
 					key = (SecretKey) c.unwrap(wrapKey, "AES", Cipher.SECRET_KEY);
 
-					ciphuserName = (byte []) inStream.readObject();					
-					ciphpwd = (byte []) inStream.readObject();
+					//recebe o username cifrado
+					ciphuserName = (byte []) inStream.readObject();
 
 					c = Cipher.getInstance("AES");
 					c.init(Cipher.DECRYPT_MODE, key);
@@ -135,36 +136,19 @@ public class myWhatsServer {
 					deciphAux = c.doFinal(ciphuserName);
 					username = new String(deciphAux);
 
-					//array de bytes da pwd decifrada
-					deciphAux = c.doFinal(ciphpwd);
-					password = new String(deciphAux);
-
 					File fAux = new File (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
 
 					String pwAux;
-					//Primeiro verifica que se nao houver user ele eh criado
-					if((pwAux = skell.isUser(username)) == null){
-						if (skell.isGroup(username) == null){
-							if (username.startsWith("\\.") || username.contains("-") || username.contains("/") || username.contains("_")){
-								outStream.writeObject(CHAR_ERROR);
-								closeThread();
-								return;
-							}
-							outStream.writeObject(55);//vai criar um utilizador
-							skell.createUser(username,password);
-							PublicKey clientPubK = (PublicKey) inStream.readObject();
-							FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
-							ObjectOutputStream oos = new ObjectOutputStream(fos);
-							oos.writeObject(clientPubK);
-							oos.close();
-						}
-						else{
-							outStream.writeObject(REG_ERROR);
-							closeThread();
-							return;
-						}
-					}
-					else{ // senao, como EXISTE USER faz autenticacao
+					int salt;
+					
+					//como EXISTE USER faz autenticacao
+					if((pwAux = skell.isUser(username)) != null){
+						salt = skell.getSalt(username);
+						
+						outStream.writeObject(salt);
+						
+						password = (String) inStream.readObject();
+						
 						int i = 2;
 						while(!pwAux.equals(password)){
 							if(i == 0){
@@ -174,9 +158,7 @@ public class myWhatsServer {
 							}
 							i--;
 							outStream.writeObject(PW_ERROR);
-							ciphpwd = (byte[]) inStream.readObject();
-							deciphAux = c.doFinal(ciphpwd);
-							password = new String (deciphAux);
+							password = (String) inStream.readObject();
 						}
 						//se o servidor tiver feito o login do cliente mas nao tiver a chave publica do mesmo
 						if (!fAux.exists()){
@@ -197,7 +179,33 @@ public class myWhatsServer {
 						}
 
 					}
-
+					
+					//se nao houver user ele eh criado
+					else{
+						outStream.writeObject(SALT_ERROR);
+						salt = (int) inStream.readObject();
+						password = (String) inStream.readObject();
+						
+						if (skell.isGroup(username) == null){
+							if (username.startsWith("\\.") || username.contains("-") || username.contains("/") || username.contains("_")){
+								outStream.writeObject(CHAR_ERROR);
+								closeThread();
+								return;
+							}
+							outStream.writeObject(55);//vai criar um utilizador
+							skell.createUser(username,salt,password);
+							PublicKey clientPubK = (PublicKey) inStream.readObject();
+							FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
+							ObjectOutputStream oos = new ObjectOutputStream(fos);
+							oos.writeObject(clientPubK);
+							oos.close();
+						}
+						else{
+							outStream.writeObject(REG_ERROR);
+							closeThread();
+							return;
+						}
+					}
 
 					outStream.writeObject(1);//correu tudo bem com a autenticacao no servidor
 

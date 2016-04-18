@@ -13,9 +13,11 @@ import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 
@@ -37,6 +39,7 @@ public class myWhats {
 	private static final String flags = "-p-m-f-r-a-d";
 	private static final Pattern PATTERN = Pattern.compile(
 			"^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
+	private final static int SALT_ERROR = -64;
 	private final static int CHAR_ERROR = -65;
 	private final static int PW_ERROR = -66;
 	private final static int ARGS_ERROR = -67;
@@ -112,7 +115,7 @@ public class myWhats {
 			}
 		}
 
-		//gerar uma chave aleatória para utilizar com o AES
+		//gerar uma cifra simetrica
 		KeyGenerator kg = KeyGenerator.getInstance("AES");
 		kg.init(128);
 		SecretKey key = kg.generateKey();
@@ -123,7 +126,7 @@ public class myWhats {
 		KeyPair kp = kpg.generateKeyPair( );
 		PublicKey publicK = kp.getPublic();
 		PrivateKey privateK = kp.getPrivate();
-		
+
 		//chave publica do cliente em array de bytes
 		byte[]keyEncoded;
 
@@ -140,13 +143,33 @@ public class myWhats {
 
 		byte[] ciphAux = c.doFinal(userName.getBytes());
 
-		//envia o username
+		//envia a key cifrada
 		out.writeObject(wrapKey);
+		//envia o username cifrado
 		out.writeObject(ciphAux);
 
-		ciphAux = c.doFinal(pwd.getBytes());
+		int salt = (int)in.readObject();
 
-		out.writeObject(ciphAux);
+		//Se nao existir user cria salt
+		if (salt == SALT_ERROR){
+			Random random = new Random();
+			salt = random.nextInt(1000000);
+			//envia o salt
+			out.writeObject(salt);
+		}
+		
+		//adiciona salt a password
+		String saltStr = Integer.toString(salt);
+		if (saltStr.length() < 6)
+			saltStr = addZerosSalt(saltStr);
+		String pwdSalt = pwd.concat(":"+saltStr);
+
+		//cria o hash
+		MessageDigest md = MessageDigest.getInstance("SHA-256");
+		byte buf[] = pwdSalt.getBytes();
+		byte hash[] = md.digest(buf);
+		String pwdHash = new String (hash);
+		out.writeObject(pwdHash);
 
 		File fAux = new File (new File(".").getAbsolutePath() + "//" + userName + "Private.key");
 
@@ -160,9 +183,8 @@ public class myWhats {
 			}
 			System.err.print("Password ERRADA!\nTem " + tries + " tentativa(s)!\n");
 			tries --;
-			pwd = retryPwd(sc);
-			ciphAux = c.doFinal(pwd.getBytes());
-			out.writeObject(ciphAux);
+			pwd = retryPwd(sc,saltStr);
+			out.writeObject(pwd);
 			fromServer = (int) in.readObject();
 			if (fromServer == 56){
 				out.writeObject(publicK);
@@ -201,18 +223,18 @@ public class myWhats {
 		if(!temp)
 			//correu tudo bem com a autenticacao no cliente
 			out.writeObject(1);
-	
 
-		
-		
+
+
+
 		///////////////////////////////////////////////////////////////////
 		//////////////////ACABOU O REGISTO E AUTENTICACAO//////////////////
 		///////////////////////////////////////////////////////////////////
 		/////////////////COMECOU A TRANSFERENCIA DE DADOS//////////////////
 		///////////////////////////////////////////////////////////////////
-		
-		
-		
+
+
+
 		//envia o numero de argumentos
 		ciphAux = c.doFinal(Integer.toString(argsFinal.length).getBytes());
 		out.writeObject(ciphAux);
@@ -439,6 +461,18 @@ public class myWhats {
 		pwd = sc.nextLine();
 		return pwd;
 	}
+	
+	private static String retryPwd(Scanner sc2, String saltStr) throws NoSuchAlgorithmException {
+		System.out.println("Por favor insira a PASSWORD:");
+		String pwd = null;
+		pwd = sc.nextLine();
+		String pwdSalt = pwd.concat(":"+saltStr);
+
+		MessageDigest md = MessageDigest.getInstance("SHA-256");
+		byte buf[] = pwdSalt.getBytes();
+		byte hash[] = md.digest(buf);
+		return new String (hash);
+	}
 
 	/**
 	 * imprime na consola o tipo de erro que sucedeu com o input
@@ -522,4 +556,14 @@ public class myWhats {
 		}
 		printR1(received,userName);
 	}
+
+	private static String addZerosSalt (String num) {
+		String z = "0";
+		int numZeros = 6 - num.length();
+		for(int i = 1; i < numZeros; i++){
+			z.concat("0");
+		}
+		return z.concat(num);
+	}
 }
+

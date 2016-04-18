@@ -92,7 +92,7 @@ public class PersistentFiles {
 		while((line = br.readLine()) != null){
 			if(line.split(":")[0].equals(username)){
 				br.close();
-				return line.split(":")[1];
+				return line.split(":")[2];
 			}
 		}
 		br.close();
@@ -104,12 +104,13 @@ public class PersistentFiles {
 	 * adiciona o seu username e a sua password ao ficheiro
 	 * adiciona uma directoria com o seu nome na directoria dos users
 	 * @param username nome do utilizador
+	 * @param salt 
 	 * @param password password do utilizador
 	 */
-	public synchronized void addUser(String username, String password) {
+	public synchronized void addUser(String username, int salt, String password) {
 		try {
 			BufferedWriter bw = new BufferedWriter(new FileWriter(users,true));
-			bw.append(username + ":" + password);
+			bw.append(username + ":" + salt + ":" + password);
 			bw.newLine();
 			bw.flush();
 			bw.close();
@@ -748,6 +749,19 @@ public class PersistentFiles {
 			}
 		});
 		return aux;
+	}
+
+	public int getSalt(String username) throws IOException {
+		br = new BufferedReader(new FileReader(users));
+		String line;
+		while((line = br.readLine()) != null){
+			if(line.split(":")[0].equals(username)){
+				br.close();
+				return Integer.parseInt(line.split(":")[1]);
+			}
+		}
+		br.close();
+		return 0;
 	}
 
 }

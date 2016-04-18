@@ -45,10 +45,11 @@ public class server_skell {
 	 * adiciona o seu username e a sua password ao ficheiro
 	 * adiciona uma directoria com o seu nome na directoria dos users
 	 * @param username nome do utilizador
+	 * @param salt 
 	 * @param password password do utilizador
 	 */
-	public void createUser(String username, String password) {
-		files.addUser(username,password);
+	public void createUser(String username, int salt, String password) {
+		files.addUser(username,salt,password);
 	}
 
 	/**
@@ -318,6 +319,10 @@ public class server_skell {
 		else
 			confirm = -9;
 		return confirm;
+	}
+
+	public int getSalt(String user) throws IOException {
+		return files.getSalt(user);
 	}
 
 }
