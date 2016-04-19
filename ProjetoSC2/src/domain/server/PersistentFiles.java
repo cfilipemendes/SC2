@@ -88,11 +88,22 @@ public class PersistentFiles {
 	 */
 	public String hasUser(String username) throws IOException {
 		br = new BufferedReader(new FileReader(users));
-		String line;
+		String line, result;
+		int i;
+		int size;
+		String [] sp;
 		while((line = br.readLine()) != null){
-			if(line.split(":")[0].equals(username)){
+			size = line.split(":").length;
+			sp = line.split(":");
+			if(sp[0].equals(username)){
 				br.close();
-				return line.split(":")[2];
+				result = sp[2];
+				i=3;
+				while (i < size){
+					result = result.concat(":"+sp[i]);
+					i++;
+				}
+				return result;
 			}
 		}
 		br.close();
@@ -128,7 +139,7 @@ public class PersistentFiles {
 	 * @param mess conteudo da mensagem
 	 * @param from nome de quem enviou
 	 */
-	public synchronized void newMessage(String to, String mess, String from) {
+	public synchronized void newMessageFrom(String to, String mess, String from) {
 		File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to);
 		if (!dir.exists())
 			dir.mkdir();
@@ -140,13 +151,20 @@ public class PersistentFiles {
 			bw.write(mess);
 			bw.flush();
 			bw.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
-			dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from);
-			if (!dir.exists())
-				dir.mkdir();
+	public synchronized void newMessageTo(String to, String mess, String from) {
+		File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from);
+		if (!dir.exists())
+			dir.mkdir();
+		try {
+			data = GregorianCalendar.getInstance().getTime();
 			File messageTo = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt");
 			messageTo.createNewFile();
-			bw = new BufferedWriter(new FileWriter(messageTo));	
+			BufferedWriter bw = new BufferedWriter(new FileWriter(messageTo));	
 			bw.write(mess);
 			bw.flush();
 			bw.close();
@@ -352,11 +370,11 @@ public class PersistentFiles {
 			File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + contact + "//" + username);
 			if (!dir.exists())
 				dir.mkdir();
-			
+
 			dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + contact);
 			if (!dir.exists())
 				dir.mkdir();
-			
+
 			data = GregorianCalendar.getInstance().getTime();
 			byte [] byteArray = new byte [fileSize];
 			FileOutputStream fosFrom = new FileOutputStream(new File(".").getAbsolutePath() + 
@@ -762,6 +780,17 @@ public class PersistentFiles {
 		}
 		br.close();
 		return 0;
+	}
+
+	public byte[] getKey(String username) throws IOException {
+		File userKey = new File (new File(".").getAbsolutePath() + "//" + keysDir + "//" + username + ".key");
+		br = new BufferedReader(new FileReader(userKey));
+		String line = br.readLine();
+		String aux;
+		while((aux = br.readLine()) != null)
+			line = line.concat(aux);
+		br.close();
+		return line.getBytes();
 	}
 
 }

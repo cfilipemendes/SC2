@@ -11,12 +11,16 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.regex.Pattern;
@@ -29,6 +33,8 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
+
+import com.sun.org.apache.xml.internal.security.utils.Base64;
 
 public class myWhats {
 
@@ -47,7 +53,7 @@ public class myWhats {
 	private final static int PACKET_SIZE = 1024;
 
 
-	public static void main (String [] args) throws UnknownHostException, IOException, ClassNotFoundException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException{
+	public static void main (String [] args) throws UnknownHostException, IOException, ClassNotFoundException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException{
 
 		if (args.length < 2){
 			System.err.println(Errors.errorConfirm(-2));
@@ -157,7 +163,7 @@ public class myWhats {
 			//envia o salt
 			out.writeObject(salt);
 		}
-		
+
 		//adiciona salt a password
 		String saltStr = Integer.toString(salt);
 		if (saltStr.length() < 6)
@@ -219,6 +225,8 @@ public class myWhats {
 		}
 		else if (fromServer == 58){
 			keyEncoded = (byte[]) in.readObject();
+			//publicK = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(keyEncoded));
+
 		}
 		if(!temp)
 			//correu tudo bem com a autenticacao no cliente
@@ -233,19 +241,49 @@ public class myWhats {
 		/////////////////COMECOU A TRANSFERENCIA DE DADOS//////////////////
 		///////////////////////////////////////////////////////////////////
 
-
+		Cipher cAux = Cipher.getInstance("RSA");
 
 		//envia o numero de argumentos
 		ciphAux = c.doFinal(Integer.toString(argsFinal.length).getBytes());
 		out.writeObject(ciphAux);
+		byte [] otherUserPublicK = null;
+		PublicKey otherUPublicK;
+		int x;
+		
 		//envia todos os argumentos
 		for (int i = 0; i < argsFinal.length; i++){
 			//encriptar a mensagem com a cifra assimetrica
-			if (argsFinal[0] == "-m" && i == 2){
+			if (argsFinal[0].equals("-m")){
+				if (i == 1) {
+					ciphAux = c.doFinal(argsFinal[i].getBytes());
+					out.writeObject(ciphAux);
+					x = (int) in.readObject();
+					if (x != 1){
+						System.err.println(Errors.errorConfirm(x));
+						return;
+					}
+					otherUserPublicK = (byte []) in.readObject();
+				}
+				else if (i == 2){
+					//ERRRROOOO!!!!! Sta foda! Keystore
+					otherUPublicK = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(otherUserPublicK));
+					cAux.init(Cipher.ENCRYPT_MODE,otherUPublicK);
+					ciphAux = cAux.doFinal(argsFinal[2].getBytes());
+					out.writeObject(new String(ciphAux));
 
+					cAux.init(Cipher.ENCRYPT_MODE, publicK);
+					ciphAux = cAux.doFinal(argsFinal[2].getBytes());
+					out.writeObject(new String(ciphAux));
+				}
+				else{
+				ciphAux = c.doFinal(argsFinal[i].getBytes());
+				out.writeObject(ciphAux);
+				}
 			}
-			ciphAux = c.doFinal(argsFinal[i].getBytes());
-			out.writeObject(ciphAux);
+			else{
+				ciphAux = c.doFinal(argsFinal[i].getBytes());
+				out.writeObject(ciphAux);
+			}
 		}
 
 		//verifica se os dados foram bem recebidos pelo servidor
@@ -461,7 +499,7 @@ public class myWhats {
 		pwd = sc.nextLine();
 		return pwd;
 	}
-	
+
 	private static String retryPwd(Scanner sc2, String saltStr) throws NoSuchAlgorithmException {
 		System.out.println("Por favor insira a PASSWORD:");
 		String pwd = null;

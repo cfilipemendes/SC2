@@ -92,7 +92,7 @@ public class server_skell {
 		int size = arguments.length-1;
 		if (size > 2)
 			return -8;
-		if (size == -1)
+		if (size == 0)
 			return 1;
 
 		for (int i = 0; i <= size; i++){
@@ -104,7 +104,7 @@ public class server_skell {
 						confirm.toString().contains("a") ||
 						confirm.toString().contains("d"))
 					return -6;
-				if(!argTwo(i, arguments, size))
+				if(!argThree(i, arguments, size))
 					return -7;
 				confirm.append('m');
 				break;
@@ -156,12 +156,21 @@ public class server_skell {
 		}
 		return 1;
 	}
+	
+	private static boolean argThree(int i , String [] args, int size){
+		if(i+3 > size)
+			return false;
+		if (flags.contains(args[i+1]) || flags.contains(args[i+2]) || flags.contains(args[i+3]))
+			return false;
+		return true;
+	}
+	
 	/**
 	 * Testa se uma flag de 2 parametros e bem passado ao programa
 	 * @param i indice do parametro a avaliar
 	 * @param args argumentos passados ao programa
 	 * @param size tamanho dos parametros
-	 * @return true se os argumentos foram validos
+	 * @return true se os argumentos forem validos
 	 */
 	private static boolean argTwo(int i , String [] args, int size){
 		if(i+2 > size)
@@ -191,8 +200,12 @@ public class server_skell {
 	 * @param mess conteudo da mensagem
 	 * @param from emissor da mensagem
 	 */
-	public void doMoperation(String to, String mess, String from) {
-		files.newMessage(to, mess, from);
+	public void doMoperationFrom(String to, String mess, String from) {
+		files.newMessageFrom(to, mess, from);
+	}
+	
+	public void doMoperationTo(String to, String mess, String from) {
+		files.newMessageTo(to, mess, from);
 	}
 	/**
 	 * Envia um mensagem para um grupo
@@ -325,4 +338,9 @@ public class server_skell {
 		return files.getSalt(user);
 	}
 
+	public byte[] getKey(String username) throws IOException {
+		return files.getKey(username);
+	}
+
+	
 }

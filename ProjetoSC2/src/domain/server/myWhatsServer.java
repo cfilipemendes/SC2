@@ -22,11 +22,15 @@ import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.util.Scanner;
+
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
@@ -44,6 +48,7 @@ public class myWhatsServer {
 	private final int ARGS_ERROR = -67;
 	private final int REG_ERROR = -68;
 	private server_skell skell;
+	private String pwdMac;
 
 	public static void main(String[] args) {
 		myWhatsServer server = new myWhatsServer();
@@ -55,6 +60,13 @@ public class myWhatsServer {
 
 		System.setProperty("javax.net.ssl.keyStore", "myServer.keystore");
 		System.setProperty("javax.net.ssl.keyStorePassword", "littlestars");
+
+		//Fazer isto!!!!!!
+		System.out.println("Qual a password para o MAC?");
+
+		Scanner sc = new Scanner (System.in);
+		pwdMac = sc.nextLine();
+		sc.close();
 
 		try {
 			ServerSocketFactory ssf = SSLServerSocketFactory.getDefault( );
@@ -109,6 +121,17 @@ public class myWhatsServer {
 				byte [] ciphAux;
 				byte [] deciphAux;
 				try {
+
+					byte [] pwdMacByte = pwdMac.getBytes();
+					SecretKey keyMac = new SecretKeySpec(pwdMacByte, "HmacSHA256");
+
+					Mac m;
+					byte[]mac=null;
+					m = Mac.getInstance("HmacSHA256");
+					m.init(keyMac);
+					m.update(pwdMacByte);
+					mac = m.doFinal();
+
 					//Cria uma cifra assimetrica
 					KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
 					kpg.initialize(2048); //2048 bits
@@ -140,15 +163,13 @@ public class myWhatsServer {
 
 					String pwAux;
 					int salt;
-					
+
 					//como EXISTE USER faz autenticacao
 					if((pwAux = skell.isUser(username)) != null){
 						salt = skell.getSalt(username);
-						
 						outStream.writeObject(salt);
-						
 						password = (String) inStream.readObject();
-						
+
 						int i = 2;
 						while(!pwAux.equals(password)){
 							if(i == 0){
@@ -173,19 +194,19 @@ public class myWhatsServer {
 							outStream.writeObject(58);
 							byte[] keyEncoded;
 							FileInputStream fis = new FileInputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
-						    ObjectInputStream ois = new ObjectInputStream(fis);
-						    keyEncoded = ois.readObject().toString().getBytes();
-						    outStream.writeObject(keyEncoded);
+							ObjectInputStream ois = new ObjectInputStream(fis);
+							keyEncoded = ois.readObject().toString().getBytes();
+							outStream.writeObject(keyEncoded);
 						}
 
 					}
-					
+
 					//se nao houver user ele eh criado
 					else{
 						outStream.writeObject(SALT_ERROR);
 						salt = (int) inStream.readObject();
 						password = (String) inStream.readObject();
-						
+
 						if (skell.isGroup(username) == null){
 							if (username.startsWith("\\.") || username.contains("-") || username.contains("/") || username.contains("_")){
 								outStream.writeObject(CHAR_ERROR);
@@ -207,7 +228,7 @@ public class myWhatsServer {
 						}
 					}
 
-					outStream.writeObject(1);//correu tudo bem com a autenticacao no servidor
+					//outStream.writeObject(1);//correu tudo bem com a autenticacao no servidor
 
 
 
@@ -236,15 +257,37 @@ public class myWhatsServer {
 					deciphAux = c.doFinal(ciphAux);
 					numArgs = Integer.parseInt(new String(deciphAux));
 
-					String [] arguments = new String [numArgs];
+					String [] arguments = new String [(numArgs+1)];
 					//recepcao de parametros do client
 					for(int i = 0; i < numArgs; i++){
-						ciphAux = (byte[]) inStream.readObject();
-						deciphAux = c.doFinal(ciphAux);
-						arguments [i]= new String(deciphAux);
+						if (i == 0){
+							ciphAux = (byte[]) inStream.readObject();
+							deciphAux = c.doFinal(ciphAux);
+							arguments[i] = new String(deciphAux);
+						}
 						//recebe a mensagem do cliente cifrada
-						if (arguments[0] == "-m" && i == 2){
-
+						if (arguments[0].equals("-m")){
+							if (i == 1){
+								ciphAux = (byte[]) inStream.readObject();
+								deciphAux = c.doFinal(ciphAux);
+								arguments[i] = new String(deciphAux);
+								if (skell.isUser(arguments[1]) == null){
+									outStream.writeObject(-1);
+									closeThread();
+									return;
+								}
+								outStream.writeObject(1);
+								outStream.writeObject(skell.getKey(arguments[1]));
+							}
+							else if (i == 2){
+								arguments [i] = (String) inStream.readObject();
+								arguments [i+1] = (String) inStream.readObject();
+							}
+						}
+						else{
+							ciphAux = (byte[]) inStream.readObject();
+							deciphAux = c.doFinal(ciphAux);
+							arguments[i] = new String(deciphAux);
 						}
 					}
 
@@ -258,11 +301,13 @@ public class myWhatsServer {
 					else{
 						confirm = 1;
 						outStream.writeObject(1);//correu tudo bem com os argumentos recebidos
-						if (arguments.length != 0){
+						if (arguments[0] != null){
 							switch(arguments[0]){
 							case "-m":
-								if (skell.isUser(arguments[1]) != null)
-									skell.doMoperation(arguments[1],arguments[2],username);
+								if (skell.isUser(arguments[1]) != null){
+									skell.doMoperationTo(arguments[1],arguments[2],username);
+									skell.doMoperationFrom(arguments[1],arguments[3],username);
+								}
 								else if (skell.isGroup(arguments[1]) != null){
 									if (skell.hasUserInGroup(arguments[1], username))
 										skell.doMGroupOperation(arguments[1],arguments[2],username);
