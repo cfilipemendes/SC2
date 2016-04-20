@@ -29,7 +29,6 @@ public class PersistentFiles {
 	private String usersDir;
 	private Date data;
 	private SimpleDateFormat sdf;
-	private String keysDir;
 
 	/**
 	 * construtor de PersistentFiles
@@ -42,7 +41,6 @@ public class PersistentFiles {
 		sdf = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss");
 		this.groupsDir = groupsDir;
 		this.usersDir = usersDir;
-		this.keysDir = keysDir;
 		if(!users.exists())
 			try {
 				users.createNewFile();
@@ -336,6 +334,22 @@ public class PersistentFiles {
 		}
 
 		return false;
+	}
+
+
+	public String[] usersInGroup(String groupname){
+		String [] us = null;
+		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+
+		try {
+			br = new BufferedReader(new FileReader(group));
+			us = (String[]) br.lines().toArray();
+			br.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return us;
 	}
 
 	/**
@@ -780,17 +794,6 @@ public class PersistentFiles {
 		}
 		br.close();
 		return 0;
-	}
-
-	public byte[] getKey(String username) throws IOException {
-		File userKey = new File (new File(".").getAbsolutePath() + "//" + keysDir + "//" + username + ".key");
-		br = new BufferedReader(new FileReader(userKey));
-		String line = br.readLine();
-		String aux;
-		while((aux = br.readLine()) != null)
-			line = line.concat(aux);
-		br.close();
-		return line.getBytes();
 	}
 
 }

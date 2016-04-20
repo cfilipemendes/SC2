@@ -15,10 +15,15 @@ import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Random;
@@ -33,8 +38,6 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
-
-import com.sun.org.apache.xml.internal.security.utils.Base64;
 
 public class myWhats {
 
@@ -51,9 +54,11 @@ public class myWhats {
 	private final static int ARGS_ERROR = -67;
 	private final static int REG_ERROR = -68;
 	private final static int PACKET_SIZE = 1024;
+	private static String pwd;
+	private final static String ksPwd = "littlestars"; 
 
 
-	public static void main (String [] args) throws UnknownHostException, IOException, ClassNotFoundException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException{
+	public static void main (String [] args) throws UnknownHostException, IOException, ClassNotFoundException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, KeyStoreException, CertificateException, UnrecoverableKeyException{
 
 		if (args.length < 2){
 			System.err.println(Errors.errorConfirm(-2));
@@ -85,7 +90,7 @@ public class myWhats {
 
 		sc = new Scanner (System.in);
 
-		String pwd = null;
+		pwd = null;
 		if (valid == -10)
 			pwd = retryPwd(sc);
 
@@ -126,12 +131,6 @@ public class myWhats {
 		kg.init(128);
 		SecretKey key = kg.generateKey();
 
-		//gerar uma cifra assimetrica
-		KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-		kpg.initialize(2048); //2048 bits
-		KeyPair kp = kpg.generateKeyPair( );
-		PublicKey publicK = kp.getPublic();
-		PrivateKey privateK = kp.getPrivate();
 
 		//chave publica do cliente em array de bytes
 		byte[]keyEncoded;
@@ -140,14 +139,14 @@ public class myWhats {
 		PublicKey servPubK = (PublicKey) in.readObject();
 
 		//wrap da publicK na key
-		Cipher c = Cipher.getInstance("RSA");
-		c.init(Cipher.WRAP_MODE, servPubK);
-		byte [] wrapKey = c.wrap(key);		
+		Cipher cRSA = Cipher.getInstance("RSA");
+		cRSA.init(Cipher.WRAP_MODE, servPubK);
+		byte [] wrapKey = cRSA.wrap(key);		
 
-		c = Cipher.getInstance("AES");
-		c.init(Cipher.ENCRYPT_MODE, key);
+		Cipher cAES = Cipher.getInstance("AES");
+		cAES.init(Cipher.ENCRYPT_MODE, key);
 
-		byte[] ciphAux = c.doFinal(userName.getBytes());
+		byte[] ciphAux = cAES.doFinal(userName.getBytes());
 
 		//envia a key cifrada
 		out.writeObject(wrapKey);
@@ -175,9 +174,8 @@ public class myWhats {
 		byte buf[] = pwdSalt.getBytes();
 		byte hash[] = md.digest(buf);
 		String pwdHash = new String (hash);
-		out.writeObject(pwdHash);
-
-		File fAux = new File (new File(".").getAbsolutePath() + "//" + userName + "Private.key");
+		ciphAux = cAES.doFinal(pwdHash.getBytes());
+		out.writeObject(ciphAux);
 
 		int fromServer = (int) in.readObject();
 		int tries = 2;
@@ -189,16 +187,10 @@ public class myWhats {
 			}
 			System.err.print("Password ERRADA!\nTem " + tries + " tentativa(s)!\n");
 			tries --;
-			pwd = retryPwd(sc,saltStr);
-			out.writeObject(pwd);
+			pwdHash = retryPwd(sc,saltStr);
+			ciphAux = cAES.doFinal(pwdHash.getBytes());
+			out.writeObject(ciphAux);
 			fromServer = (int) in.readObject();
-			if (fromServer == 56){
-				out.writeObject(publicK);
-				FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + userName + "Private.key");
-				ObjectOutputStream oos = new ObjectOutputStream(fos);
-				oos.writeObject(privateK);
-				oos.close();
-			}
 		}
 		if (fromServer == CHAR_ERROR){
 			System.err.println(Errors.errorConfirm(CHAR_ERROR));
@@ -210,29 +202,13 @@ public class myWhats {
 			closeCon();
 			return;
 		}
-		//Se o server for criar o utilizador pela primeira vez
-		//ou se nao tiver a public key guardada
-		//ou se o cliente nao tiver a private key guardada
-		boolean temp=false;
-		if (fromServer == 55 || fromServer == 56 || (temp=!fAux.exists())){
-			if (temp)
-				out.writeObject(57);//informa o servidor que vai enviar uma publickey do cliente
-			out.writeObject(publicK);
-			FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + userName + "Private.key");
-			ObjectOutputStream oos = new ObjectOutputStream(fos);
-			oos.writeObject(privateK);
-			oos.close();
-		}
-		else if (fromServer == 58){
-			keyEncoded = (byte[]) in.readObject();
-			//publicK = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(keyEncoded));
-
-		}
-		if(!temp)
-			//correu tudo bem com a autenticacao no cliente
-			out.writeObject(1);
 
 
+		//Cria uma keystore e vai buscar a private key do user
+		FileInputStream kfile = new FileInputStream("myClient.keyStore");
+		KeyStore kstore = KeyStore.getInstance("JKS");
+		kstore.load(kfile,ksPwd.toCharArray());
+		Key privateKey = kstore.getKey(userName,pwd.toCharArray());
 
 
 		///////////////////////////////////////////////////////////////////
@@ -241,47 +217,52 @@ public class myWhats {
 		/////////////////COMECOU A TRANSFERENCIA DE DADOS//////////////////
 		///////////////////////////////////////////////////////////////////
 
-		Cipher cAux = Cipher.getInstance("RSA");
-
 		//envia o numero de argumentos
-		ciphAux = c.doFinal(Integer.toString(argsFinal.length).getBytes());
+		ciphAux = cAES.doFinal(Integer.toString(argsFinal.length).getBytes());
 		out.writeObject(ciphAux);
-		byte [] otherUserPublicK = null;
-		PublicKey otherUPublicK;
+
 		int x;
-		
+		Certificate otherCert;
+		PublicKey otherPubKey;
+		String [] groupUsers = null;
 		//envia todos os argumentos
 		for (int i = 0; i < argsFinal.length; i++){
 			//encriptar a mensagem com a cifra assimetrica
 			if (argsFinal[0].equals("-m")){
 				if (i == 1) {
-					ciphAux = c.doFinal(argsFinal[i].getBytes());
+					ciphAux = cAES.doFinal(argsFinal[i].getBytes());
 					out.writeObject(ciphAux);
 					x = (int) in.readObject();
 					if (x != 1){
 						System.err.println(Errors.errorConfirm(x));
 						return;
 					}
-					otherUserPublicK = (byte []) in.readObject();
+					// vai buscar a public key do outro user
+					try {
+						otherCert = kstore.getCertificate(argsFinal[1]);
+						otherPubKey = otherCert.getPublicKey();
+					} catch (KeyStoreException e) {
+						e.printStackTrace();
+					}
+					groupUsers = (String []) in.readObject();
 				}
 				else if (i == 2){
-					//ERRRROOOO!!!!! Sta foda! Keystore
-					otherUPublicK = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(otherUserPublicK));
-					cAux.init(Cipher.ENCRYPT_MODE,otherUPublicK);
-					ciphAux = cAux.doFinal(argsFinal[2].getBytes());
-					out.writeObject(new String(ciphAux));
-
-					cAux.init(Cipher.ENCRYPT_MODE, publicK);
-					ciphAux = cAux.doFinal(argsFinal[2].getBytes());
-					out.writeObject(new String(ciphAux));
+					for(int j = 0; j < groupUsers.length; j++){
+						//ir buscar a public key de cada user a enviar
+						otherCert = kstore.getCertificate(groupUsers[j]);
+						otherPubKey = otherCert.getPublicKey();
+						cRSA.init(Cipher.ENCRYPT_MODE, otherPubKey);
+						ciphAux = cRSA.doFinal(argsFinal[2].getBytes());
+						out.writeObject(ciphAux);
+					}
 				}
 				else{
-				ciphAux = c.doFinal(argsFinal[i].getBytes());
-				out.writeObject(ciphAux);
+					ciphAux = cAES.doFinal(argsFinal[i].getBytes());
+					out.writeObject(ciphAux);
 				}
 			}
 			else{
-				ciphAux = c.doFinal(argsFinal[i].getBytes());
+				ciphAux = cAES.doFinal(argsFinal[i].getBytes());
 				out.writeObject(ciphAux);
 			}
 		}
@@ -502,7 +483,6 @@ public class myWhats {
 
 	private static String retryPwd(Scanner sc2, String saltStr) throws NoSuchAlgorithmException {
 		System.out.println("Por favor insira a PASSWORD:");
-		String pwd = null;
 		pwd = sc.nextLine();
 		String pwdSalt = pwd.concat(":"+saltStr);
 

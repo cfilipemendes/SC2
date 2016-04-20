@@ -17,11 +17,17 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.util.Scanner;
 
 import javax.crypto.BadPaddingException;
@@ -49,6 +55,8 @@ public class myWhatsServer {
 	private final int REG_ERROR = -68;
 	private server_skell skell;
 	private String pwdMac;
+	private final static String ksPwd = "littlestars"; 
+
 
 	public static void main(String[] args) {
 		myWhatsServer server = new myWhatsServer();
@@ -67,6 +75,8 @@ public class myWhatsServer {
 		Scanner sc = new Scanner (System.in);
 		pwdMac = sc.nextLine();
 		sc.close();
+
+
 
 		try {
 			ServerSocketFactory ssf = SSLServerSocketFactory.getDefault( );
@@ -159,8 +169,6 @@ public class myWhatsServer {
 					deciphAux = c.doFinal(ciphuserName);
 					username = new String(deciphAux);
 
-					File fAux = new File (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
-
 					String pwAux;
 					int salt;
 
@@ -168,7 +176,9 @@ public class myWhatsServer {
 					if((pwAux = skell.isUser(username)) != null){
 						salt = skell.getSalt(username);
 						outStream.writeObject(salt);
-						password = (String) inStream.readObject();
+						ciphAux = (byte []) inStream.readObject();
+						deciphAux = c.doFinal(ciphAux);
+						password = new String(deciphAux);
 
 						int i = 2;
 						while(!pwAux.equals(password)){
@@ -179,24 +189,9 @@ public class myWhatsServer {
 							}
 							i--;
 							outStream.writeObject(PW_ERROR);
-							password = (String) inStream.readObject();
-						}
-						//se o servidor tiver feito o login do cliente mas nao tiver a chave publica do mesmo
-						if (!fAux.exists()){
-							outStream.writeObject(56);
-							PublicKey clientPubK = (PublicKey) inStream.readObject();
-							FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
-							ObjectOutputStream oos = new ObjectOutputStream(fos);
-							oos.writeObject(clientPubK);
-							oos.close();
-						}
-						else{
-							outStream.writeObject(58);
-							byte[] keyEncoded;
-							FileInputStream fis = new FileInputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
-							ObjectInputStream ois = new ObjectInputStream(fis);
-							keyEncoded = ois.readObject().toString().getBytes();
-							outStream.writeObject(keyEncoded);
+							ciphAux = (byte []) inStream.readObject();
+							deciphAux = c.doFinal(ciphAux);
+							password = new String(deciphAux);
 						}
 
 					}
@@ -205,7 +200,9 @@ public class myWhatsServer {
 					else{
 						outStream.writeObject(SALT_ERROR);
 						salt = (int) inStream.readObject();
-						password = (String) inStream.readObject();
+						ciphAux = (byte []) inStream.readObject();
+						deciphAux = c.doFinal(ciphAux);
+						password = new String(deciphAux);
 
 						if (skell.isGroup(username) == null){
 							if (username.startsWith("\\.") || username.contains("-") || username.contains("/") || username.contains("_")){
@@ -213,13 +210,7 @@ public class myWhatsServer {
 								closeThread();
 								return;
 							}
-							outStream.writeObject(55);//vai criar um utilizador
 							skell.createUser(username,salt,password);
-							PublicKey clientPubK = (PublicKey) inStream.readObject();
-							FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
-							ObjectOutputStream oos = new ObjectOutputStream(fos);
-							oos.writeObject(clientPubK);
-							oos.close();
 						}
 						else{
 							outStream.writeObject(REG_ERROR);
@@ -228,10 +219,17 @@ public class myWhatsServer {
 						}
 					}
 
-					//outStream.writeObject(1);//correu tudo bem com a autenticacao no servidor
 
-
-
+					//Cria uma keystore e vai buscar a public key do user
+					FileInputStream kfile = new FileInputStream("myClient.keyStore");
+					try {
+						KeyStore kstore = KeyStore.getInstance("JKS");
+						kstore.load(kfile,ksPwd.toCharArray());
+						Certificate cert = kstore.getCertificate(username);
+						PublicKey publicKUser = cert.getPublicKey();
+					} catch (KeyStoreException | CertificateException e) {
+						e.printStackTrace();
+					}
 
 					///////////////////////////////////////////////////////////////////
 					//////////////////ACABOU O REGISTO E AUTENTICACAO//////////////////
@@ -240,24 +238,14 @@ public class myWhatsServer {
 					///////////////////////////////////////////////////////////////////
 
 
-
-
-					int x = (int) inStream.readObject();
-					//nao existe privatekey no cliente e vai ser enviada uma nova publickey do mesmo
-					if (x == 57){
-						PublicKey clientPubK = (PublicKey) inStream.readObject();
-						FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + KEYS_DIR + "//" + username + ".key");
-						ObjectOutputStream oos = new ObjectOutputStream(fos);
-						oos.writeObject(clientPubK);
-						oos.close();
-					}
-
 					//recebe o bytearray do numero de args
 					ciphAux = (byte[]) inStream.readObject();
 					deciphAux = c.doFinal(ciphAux);
 					numArgs = Integer.parseInt(new String(deciphAux));
 
 					String [] arguments = new String [(numArgs+1)];
+					String [] groupUsers = null;
+					String [] argsAux = null;
 					//recepcao de parametros do client
 					for(int i = 0; i < numArgs; i++){
 						if (i == 0){
@@ -271,23 +259,35 @@ public class myWhatsServer {
 								ciphAux = (byte[]) inStream.readObject();
 								deciphAux = c.doFinal(ciphAux);
 								arguments[i] = new String(deciphAux);
-								if (skell.isUser(arguments[1]) == null){
+								if (skell.isUser(arguments[1]) == null || skell.isGroup(arguments[1]) == null){
 									outStream.writeObject(-1);
 									closeThread();
 									return;
 								}
 								outStream.writeObject(1);
-								outStream.writeObject(skell.getKey(arguments[1]));
+								//se o contacto for um grupo envia um array com todos os seus elementos
+								if(skell.isGroup(arguments[1]) != null){
+									groupUsers = skell.usersInGroup(arguments[1]);
+									outStream.writeObject(groupUsers);
+								}
+								// se contacto for user envia o seu username
+								else
+									outStream.writeObject(new String [] {arguments[1]});
+
 							}
 							else if (i == 2){
-								arguments [i] = (String) inStream.readObject();
-								arguments [i+1] = (String) inStream.readObject();
+
+								argsAux = new String [groupUsers.length];
+								for(int j = 0; j < groupUsers.length; j++){
+									argsAux[i] = new String ((byte []) inStream.readObject());
+								}
+								arguments = concatArrays(arguments, argsAux);
 							}
-						}
-						else{
-							ciphAux = (byte[]) inStream.readObject();
-							deciphAux = c.doFinal(ciphAux);
-							arguments[i] = new String(deciphAux);
+							else{
+								ciphAux = (byte[]) inStream.readObject();
+								deciphAux = c.doFinal(ciphAux);
+								arguments[i] = new String(deciphAux);
+							}
 						}
 					}
 
@@ -401,6 +401,17 @@ public class myWhatsServer {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+		}
+
+		private String[] concatArrays(String[] arguments, String[] argsAux) {
+			String [] result = new String [arguments.length+argsAux.length];
+			for (int i = 0; i < arguments.length+argsAux.length; i++){
+				if (i < arguments.length)
+					result[i] = arguments[i];
+				else
+					result[i] = argsAux[i-arguments.length];
+			}
+			return result;
 		}
 
 		/**

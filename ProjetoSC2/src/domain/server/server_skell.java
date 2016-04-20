@@ -72,6 +72,11 @@ public class server_skell {
 		return files.hasUserInGroup(groupname, user);
 
 	}
+	
+	
+	public String[] usersInGroup(String groupname){
+		return files.usersInGroup(groupname);
+	}
 
 	/**
 	 * Valida os argumentos passados ao programa 
@@ -337,10 +342,5 @@ public class server_skell {
 	public int getSalt(String user) throws IOException {
 		return files.getSalt(user);
 	}
-
-	public byte[] getKey(String username) throws IOException {
-		return files.getKey(username);
-	}
-
 	
 }
