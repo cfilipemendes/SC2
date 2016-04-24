@@ -41,6 +41,10 @@ public class Errors {
 			return "Ficheiro nao existe no cliente!";
 		case -12:
 			return "O ficheiro nao pode conter os seguintes caracteres: _,/,-,.";
+		case -13:
+			return "O ficheiro foi corrompido";
+		case -14:
+			return "O servidor enviou incorrectamente os dados";
 		case CHAR_ERROR:
 			return "O nome nao pode conter os seguintes caracteres: _,/,-,.";
 		case ARGS_ERROR:

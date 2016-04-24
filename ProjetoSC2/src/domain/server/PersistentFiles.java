@@ -11,6 +11,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.text.SimpleDateFormat;
@@ -36,7 +37,7 @@ public class PersistentFiles {
 	 * @param groupsDir nome da directoria dos grupos
 	 * @param usersDir nome da directoria dos clientes
 	 */
-	public PersistentFiles(String usersFile, String groupsDir, String usersDir, String keysDir) {
+	public PersistentFiles(String usersFile, String groupsDir, String usersDir) {
 		users = new File(usersFile + ".txt");
 		sdf = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss");
 		this.groupsDir = groupsDir;
@@ -51,9 +52,6 @@ public class PersistentFiles {
 		if (!dir.exists())
 			dir.mkdir();
 		dir = new File(groupsDir);
-		if (!dir.exists())
-			dir.mkdir();
-		dir = new File(keysDir);
 		if (!dir.exists())
 			dir.mkdir();
 	}
@@ -136,34 +134,42 @@ public class PersistentFiles {
 	 * @param to nome do remetente
 	 * @param mess conteudo da mensagem
 	 * @param from nome de quem enviou
+	 * @param from2 
 	 */
-	public synchronized void newMessageFrom(String to, String mess, String from) {
+	public synchronized void newMessage(String to, String mess, String sig, String from) {
 		File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to);
 		if (!dir.exists())
 			dir.mkdir();
 		try {
 			data = GregorianCalendar.getInstance().getTime();
-			File message = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt");
-			message.createNewFile();
-			BufferedWriter bw = new BufferedWriter(new FileWriter(message));	
+			File messageFrom = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt");
+			messageFrom.createNewFile();
+			BufferedWriter bw = new BufferedWriter(new FileWriter(messageFrom));	
 			bw.write(mess);
 			bw.flush();
 			bw.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
 
-	public synchronized void newMessageTo(String to, String mess, String from) {
-		File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from);
-		if (!dir.exists())
-			dir.mkdir();
-		try {
-			data = GregorianCalendar.getInstance().getTime();
+			File sigFrom = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".sig");
+			sigFrom.createNewFile();
+			bw = new BufferedWriter(new FileWriter(sigFrom));	
+			bw.write(sig);
+			bw.flush();
+			bw.close();
+
+			dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from);
+			if (!dir.exists())
+				dir.mkdir();
 			File messageTo = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt");
 			messageTo.createNewFile();
-			BufferedWriter bw = new BufferedWriter(new FileWriter(messageTo));	
+			bw = new BufferedWriter(new FileWriter(messageTo));	
 			bw.write(mess);
+			bw.flush();
+			bw.close();
+
+			File sigTo = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from + "//" + from + "_" + to + "_" + sdf.format(data) + ".sig");
+			sigTo.createNewFile();
+			bw = new BufferedWriter(new FileWriter(sigTo));	
+			bw.write(sig);
 			bw.flush();
 			bw.close();
 		} catch (IOException e) {
@@ -176,8 +182,10 @@ public class PersistentFiles {
 	 * @param groupname nome do grupo para o qual vai ser enviada a mensagem
 	 * @param mess conteudo da mensagem
 	 * @param from nome de quem enviou a mensagem
+	 * @param from2 
+	 * @param groupUsers 
 	 */
-	public synchronized void newGroupMessage(String groupname, String mess, String from) {
+	public synchronized void newGroupMessage(String groupname, String mess, String sig, String from) {
 		try {
 			data = GregorianCalendar.getInstance().getTime();
 			File message = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + from + "_" + groupname + "_" + sdf.format(data) + ".txt");
@@ -186,13 +194,16 @@ public class PersistentFiles {
 			bw.write(mess);
 			bw.flush();
 			bw.close();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
+
+			File sigGroup = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + from + "_" + groupname + "_" + sdf.format(data) + ".sig");
+			sigGroup.createNewFile();
+			bw = new BufferedWriter(new FileWriter(sigGroup));	
+			bw.write(sig);
+			bw.flush();
+			bw.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
-
 	}
 
 	/**
@@ -340,15 +351,20 @@ public class PersistentFiles {
 	public String[] usersInGroup(String groupname){
 		String [] us = null;
 		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
-
+		int i = 0;
 		try {
 			br = new BufferedReader(new FileReader(group));
-			us = (String[]) br.lines().toArray();
+			Object[] aux = br.lines().toArray();
+			us = new String [aux.length];
+			while (i < aux.length){
+				us [i] = aux[i].toString();
+				i++;
+			}
 			br.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
+
 		return us;
 	}
 
@@ -377,9 +393,10 @@ public class PersistentFiles {
 	 * @param fich nome do ficheiro
 	 * @param username nome de quem envia o ficheiro
 	 * @param fileSize tamanho do ficheiro em bytes
+	 * @param sig 
 	 * @param inStream stream pela qual vai acontecer a comunicacao cliente servidor
 	 */
-	public synchronized void saveFile(String contact, String fich, String username, int fileSize, ObjectInputStream inStream) {
+	public synchronized void saveFile(String contact, String fich, String username, int fileSize, String sig, ObjectInputStream inStream) {
 		try {
 			File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + contact + "//" + username);
 			if (!dir.exists())
@@ -391,12 +408,29 @@ public class PersistentFiles {
 
 			data = GregorianCalendar.getInstance().getTime();
 			byte [] byteArray = new byte [fileSize];
+			//Escreve o sig no From
 			FileOutputStream fosFrom = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + usersDir + "//"+ username + "//" + contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+					"//" + usersDir + "//"+ username + "//" + contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
 			BufferedOutputStream bosFrom = new BufferedOutputStream(fosFrom);
+			bosFrom.write(sig.getBytes());
+			bosFrom.flush();
+			bosFrom.close();
+			//Cria o ficheiro no From
+			fosFrom = new FileOutputStream(new File(".").getAbsolutePath() + 
+					"//" + usersDir + "//"+ username + "//" + contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+			bosFrom = new BufferedOutputStream(fosFrom);
+
+			//Escreve o sig no To
 			FileOutputStream fosTo = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + usersDir + "//" + contact + "//" + username + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+					"//" + usersDir + "//" + contact + "//" + username + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
 			BufferedOutputStream bosTo = new BufferedOutputStream(fosTo);
+			bosTo.write(sig.getBytes());
+			bosTo.flush();
+			bosTo.close();
+			//cria o ficheiro no To
+			fosTo = new FileOutputStream(new File(".").getAbsolutePath() + 
+					"//" + usersDir + "//" + contact + "//" + username + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+			bosTo = new BufferedOutputStream(fosTo);
 
 			int current = 0;
 			int bytesRead;
@@ -439,15 +473,22 @@ public class PersistentFiles {
 	 * @param fich nome do ficheiro
 	 * @param username nome de quem enviou o ficheiro
 	 * @param fileSize tamanho do ficheiro em bytes
+	 * @param sig 
 	 * @param inStream stream pela qual vai acontecer a comunicacao cliente servidor
 	 */
-	public synchronized void saveFileGroup(String contact, String fich, String username, int fileSize, ObjectInputStream inStream) {
+	public synchronized void saveFileGroup(String contact, String fich, String username, int fileSize, String sig, ObjectInputStream inStream) {
 		try {
 			data = GregorianCalendar.getInstance().getTime();
 			byte [] byteArray = new byte [fileSize];
 			FileOutputStream fos = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + groupsDir + "//"+ contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+					"//" + groupsDir + "//"+ contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
 			BufferedOutputStream bos = new BufferedOutputStream(fos);
+			bos.write(sig.getBytes());
+			bos.flush();
+			bos.close();
+			fos = new FileOutputStream(new File(".").getAbsolutePath() + 
+					"//" + groupsDir + "//"+ contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+			bos = new BufferedOutputStream(fos);
 
 			int current = 0;
 			int bytesRead;
@@ -656,107 +697,143 @@ public class PersistentFiles {
 	 * @param outStream stream pela qual vai acontecer a comunicacao cliente servidor
 	 */
 	public void getLatestConvs(String username, ObjectOutputStream outStream) {
-		File myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username);
+		File myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//");
+		File [] lif;
 		String nameAux;
 		String [] finalF,fileName;
 		File[] aux;
 		int i;
 		try {
-			i = myDir.listFiles().length;
+			//envia o numero de contactos
+			i = numFiles(myDir);
 			outStream.writeObject(i);
 			outStream.flush();
 			for (File f : myDir.listFiles()){
-				aux = sortFiles(f);
-				i = 0;
-				if (aux.length == 0){
-					outStream.writeObject(null);
-					outStream.flush();
-				}
-				else{
-					nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-					while((nameAux.startsWith(".")) && (aux.length > i+1)){
-						i++;
-						nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+				//em caso de files gerados pelo sistema
+				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1).startsWith(".")) {
+
+					aux = sortFiles(f);
+					i = 0;
+					if (aux.length == 0){
+						outStream.writeObject(null);
+						outStream.flush();
 					}
-					if (!nameAux.startsWith(".")){
-						finalF = new String [4];
-						fileName = nameAux.split("_");
-						//se o ficheiro for message
-						if (fileName.length == 4){
-							finalF [0] = fileName[0];
-							finalF [1] = fileName[1];
-							finalF [2] = (fileName[2] + "_" + fileName[3]);
-							finalF [3] = readFile(aux[i]);
-							outStream.writeObject(finalF);
-							outStream.flush();
+					else{
+						nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+						while((nameAux.startsWith(".") || nameAux.contains(".sig") || nameAux.contains(".key")) && (aux.length > i+1)){
+							i++;
+							nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
 						}
-						//se o ficheiro for file
-						else if (fileName.length == 5){
-							finalF [0] = fileName[0];
-							finalF [1] = fileName[1];
-							finalF [2] = (fileName[2] + "_" + fileName[3]);
-							finalF [3] = fileName[4];
-							outStream.writeObject(finalF);
-							outStream.flush();
+						if (!nameAux.startsWith(".")){
+							finalF = new String [5];
+							fileName = nameAux.split("_");
+							//se o ficheiro for message
+							if (fileName.length == 4){
+								finalF [0] = fileName[0];
+								finalF [1] = fileName[1];
+								finalF [2] = (fileName[2] + "_" + fileName[3]);
+								finalF [3] = readFile(aux[i]);
+								finalF [4] = "-m";
+								//envia a mensagem cifrada
+								outStream.writeObject(finalF);
+								outStream.flush();
+
+								i = 0;
+								while(!nameAux.contains(nameAux + ".key." + username) && (aux.length > i+1)){
+									i++;
+									nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+								}
+								FileInputStream fis = new FileInputStream (aux[i]);
+								BufferedInputStream bis = new BufferedInputStream (fis);
+
+								byte [] keyCiph = new byte [256];
+								bis.read(keyCiph, 0, 256);
+								outStream.writeObject(keyCiph);
+								bis.close();
+								fis.close();
+
+								i = 0;
+								while(!nameAux.contains(nameAux + ".sig") && (aux.length > i+1)){
+									i++;
+									nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+								}
+								outStream.writeObject(readFile(aux[i]).getBytes());
+
+							}
+							//se o ficheiro for file
+							else if (fileName.length == 5 && (!fileName[4].contains(".key") || !fileName[4].contains(".sig"))){
+								finalF [0] = fileName[0];
+								finalF [1] = fileName[1];
+								finalF [2] = (fileName[2] + "_" + fileName[3]);
+								finalF [3] = fileName[4];
+								finalF [4] = "-f";
+								outStream.writeObject(finalF);
+								outStream.flush();
+							}
+							else{
+								outStream.writeObject(null);
+								outStream.flush();
+							}
 						}
 						else{
 							outStream.writeObject(null);
 							outStream.flush();
 						}
 					}
-					else{
-						outStream.writeObject(null);
-						outStream.flush();
-					}
-				} 
+				}
 			}
+
+
 
 			myDir = new File (new File(".").getAbsolutePath() + "//" + groupsDir);
 			i = myDir.listFiles().length;
 			outStream.writeObject(i);
 			outStream.flush();
 			for (File f : myDir.listFiles()){
-				aux = sortFiles(f);
-				i = 0;
-				if (aux.length == 0){
-					outStream.writeObject(null);
-					outStream.flush();
-				}
-				else if (!hasUserInGroup(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1), username)){
-					outStream.writeObject(null);
-					outStream.flush();
-				}
-				else{
-					nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-					while((nameAux.startsWith(".") || nameAux.equals(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1) + ".txt"))
-							&& (aux.length > i+1)){
-						i++;
-						nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+				//em caso de files gerados pelo sistema
+				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1).startsWith(".")) {
+					aux = sortFiles(f);
+					i = 0;
+					if (aux.length == 0){
+						outStream.writeObject(null);
+						outStream.flush();
 					}
-					if (!nameAux.startsWith(".")){
-						finalF = new String [4];
-						fileName = nameAux.split("_");
-						//se o ficheiro for message
-						if (fileName.length == 4){
-							finalF [0] = fileName[0];
-							finalF [1] = fileName[1];
-							finalF [2] = (fileName[2] + "_" + fileName[3]);
-							finalF [3] = readFile(aux[i]);
-							outStream.writeObject(finalF);
-							outStream.flush();
+					else if (!hasUserInGroup(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1), username)){
+						outStream.writeObject(null);
+						outStream.flush();
+					}
+					else{
+						nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+						while((nameAux.startsWith(".") || nameAux.equals(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1) + ".txt"))
+								&& (aux.length > i+1)){
+							i++;
+							nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
 						}
-						//se o ficheiro for file
-						else if (fileName.length == 5){
-							finalF [0] = fileName[0];
-							finalF [1] = fileName[1];
-							finalF [2] = (fileName[2] + "_" + fileName[3]);
-							finalF [3] = fileName[4];
-							outStream.writeObject(finalF);
-							outStream.flush();
-						}
-						else{
-							outStream.writeObject(null);
-							outStream.flush();
+						if (!nameAux.startsWith(".")){
+							finalF = new String [4];
+							fileName = nameAux.split("_");
+							//se o ficheiro for message
+							if (fileName.length == 4){
+								finalF [0] = fileName[0];
+								finalF [1] = fileName[1];
+								finalF [2] = (fileName[2] + "_" + fileName[3]);
+								finalF [3] = readFile(aux[i]);
+								outStream.writeObject(finalF);
+								outStream.flush();
+							}
+							//se o ficheiro for file
+							else if (fileName.length == 5){
+								finalF [0] = fileName[0];
+								finalF [1] = fileName[1];
+								finalF [2] = (fileName[2] + "_" + fileName[3]);
+								finalF [3] = fileName[4];
+								outStream.writeObject(finalF);
+								outStream.flush();
+							}
+							else{
+								outStream.writeObject(null);
+								outStream.flush();
+							}
 						}
 					}
 				}
@@ -764,6 +841,16 @@ public class PersistentFiles {
 		}catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	private int numFiles(File myDir) {
+		int i = 0;
+		for (File f : myDir.listFiles()){
+			if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1).startsWith("."))
+				i++;
+		}
+		return i;
+
 	}
 
 	/**
@@ -794,6 +881,82 @@ public class PersistentFiles {
 		}
 		br.close();
 		return 0;
+	}
+
+	public void saveContactKey(String to, String contact, byte [] readKey, String username, boolean msg, String filename) {
+		File dir;
+		FileOutputStream message;
+		FileOutputStream messageTo;
+		BufferedWriter bw;
+		ObjectOutputStream oos;
+		try {
+			if (username.equals(contact)){
+				dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to); 
+				if (!dir.exists())
+					dir.mkdir();
+				data = GregorianCalendar.getInstance().getTime();
+				if (msg)
+					message = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
+				else
+					message = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
+
+				//message.createNewFile();
+				//bw = new BufferedWriter(new FileWriter(message));
+				oos = new ObjectOutputStream(message);
+				oos.write(readKey);
+				oos.close();
+				message.close();
+				//bw.write(readKey);
+				//bw.flush();
+				//bw.close();
+			}
+
+			else{
+				dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username);
+				if (!dir.exists())
+					dir.mkdir();
+				if (msg)
+					messageTo = new FileOutputStream (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
+				else
+					messageTo = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
+
+				//messageTo.createNewFile();
+				//bw = new BufferedWriter(new FileWriter(messageTo));
+				
+				oos = new ObjectOutputStream(messageTo);
+				oos.write(readKey);
+				oos.close();
+				messageTo.close();
+				//bw.write(readKey);
+				//bw.flush();
+				//bw.close();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	public void saveGroupKey(String to, String contact, String readKey, String from, boolean msg, String filename) {
+		File message;
+		try {
+			data = GregorianCalendar.getInstance().getTime();
+			if (msg)
+				message = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
+			else
+				message = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
+
+			message.createNewFile();
+			BufferedWriter bw = new BufferedWriter(new FileWriter(message));	
+			bw.write(readKey);
+			bw.flush();
+			bw.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
 	}
 
 }

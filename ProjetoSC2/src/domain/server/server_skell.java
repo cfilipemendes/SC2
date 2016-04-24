@@ -15,8 +15,8 @@ public class server_skell {
 	 * @param groupsDir nome da pasta de grupos
 	 * @param usersDir nome da pasta de utilizadores
 	 */
-	public server_skell (String usersFile, String groupsDir, String usersDir, String keysDir){
-		files = new PersistentFiles(usersFile,groupsDir,usersDir,keysDir);
+	public server_skell (String usersFile, String groupsDir, String usersDir){
+		files = new PersistentFiles(usersFile,groupsDir,usersDir);
 	}
 
 	/**
@@ -109,7 +109,7 @@ public class server_skell {
 						confirm.toString().contains("a") ||
 						confirm.toString().contains("d"))
 					return -6;
-				if(!argThree(i, arguments, size))
+				if(!argTwo(i, arguments, size))
 					return -7;
 				confirm.append('m');
 				break;
@@ -204,32 +204,31 @@ public class server_skell {
 	 * @param contact contacto do destinatario
 	 * @param mess conteudo da mensagem
 	 * @param from emissor da mensagem
+	 * @param from 
 	 */
-	public void doMoperationFrom(String to, String mess, String from) {
-		files.newMessageFrom(to, mess, from);
-	}
-	
-	public void doMoperationTo(String to, String mess, String from) {
-		files.newMessageTo(to, mess, from);
+	public void doMoperation(String to, String mess, String sig, String from) {
+		files.newMessage(to, mess, sig, from);
 	}
 	/**
 	 * Envia um mensagem para um grupo
 	 * @param groupname nome do grupo para enviar a mensagem
-	 * @param mess texto da mensagem a enviar
+	 * @param arguments texto da mensagem a enviar
 	 * @param from nome do emissor da mensagem
+	 * @param username 
+	 * @param groupUsers 
 	 */
-	public void doMGroupOperation(String groupname, String mess, String from) {
-		files.newGroupMessage(groupname, mess, from);
+	public void doMGroupOperation(String groupname, String mess, String sig, String from) {
+		files.newGroupMessage(groupname, mess, sig, from);
 	}
-
 	/**
 	 * Envia um ficheiro para um contacto
 	 * @param contact contacto da pessoa para enviar o ficheiro
 	 * @param fich nome do ficheiro
 	 * @param username nome do utilizador autenticado
+	 * @param sig 
 	 */
-	public void doFoperation(String contact, String fich, String username, int fileSize,ObjectInputStream inStream) {
-		files.saveFile(contact,fich,username,fileSize,inStream);
+	public void doFoperation(String contact, String fich, String username, int fileSize,String sig, ObjectInputStream inStream) {
+		files.saveFile(contact,fich,username,fileSize,sig,inStream);
 	}
 	
 	/**
@@ -238,10 +237,11 @@ public class server_skell {
 	 * @param fich nome do ficheiro a enviar
 	 * @param username nome do utilizador autenticado
 	 * @param fileSize tamanho do ficheio a enviar
+	 * @param sig 
 	 * @param inStream stream de dados do socket
 	 */
-	public void doFoperationGroup(String contact, String fich, String username, int fileSize,ObjectInputStream inStream) {	
-		files.saveFileGroup(contact,fich,username,fileSize,inStream);
+	public void doFoperationGroup(String contact, String fich, String username, int fileSize,String sig, ObjectInputStream inStream) {	
+		files.saveFileGroup(contact,fich,username,fileSize,sig,inStream);
 	}
 
 	/**
@@ -341,6 +341,14 @@ public class server_skell {
 
 	public int getSalt(String user) throws IOException {
 		return files.getSalt(user);
+	}
+
+	public void saveKey(String to,String contact, boolean user, byte [] readKey, String username,boolean msg, String filename) {
+		if (user)
+			files.saveContactKey(to,contact,readKey,username,msg,filename);
+		//else
+			//files.saveGroupKey(to,contact,readKey,username,msg,filename);
+
 	}
 	
 }

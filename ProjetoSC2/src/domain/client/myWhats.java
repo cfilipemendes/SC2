@@ -12,9 +12,6 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.Key;
-import java.security.KeyFactory;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
@@ -25,13 +22,13 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.CipherOutputStream;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
@@ -55,8 +52,9 @@ public class myWhats {
 	private final static int REG_ERROR = -68;
 	private final static int PACKET_SIZE = 1024;
 	private static String pwd;
-	private final static String ksPwd = "littlestars"; 
-
+	private static byte[] ciphAux;
+	private static Cipher cAES;
+	private static MessageDigest md;
 
 	public static void main (String [] args) throws UnknownHostException, IOException, ClassNotFoundException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, KeyStoreException, CertificateException, UnrecoverableKeyException{
 
@@ -131,27 +129,15 @@ public class myWhats {
 		kg.init(128);
 		SecretKey key = kg.generateKey();
 
-
-		//chave publica do cliente em array de bytes
-		byte[]keyEncoded;
-
-		//recebe a chave publica do servidor
-		PublicKey servPubK = (PublicKey) in.readObject();
-
 		//wrap da publicK na key
-		Cipher cRSA = Cipher.getInstance("RSA");
-		cRSA.init(Cipher.WRAP_MODE, servPubK);
-		byte [] wrapKey = cRSA.wrap(key);		
+		Cipher cWrap = Cipher.getInstance("RSA");	
 
-		Cipher cAES = Cipher.getInstance("AES");
+		cAES = Cipher.getInstance("AES");
 		cAES.init(Cipher.ENCRYPT_MODE, key);
 
-		byte[] ciphAux = cAES.doFinal(userName.getBytes());
 
-		//envia a key cifrada
-		out.writeObject(wrapKey);
 		//envia o username cifrado
-		out.writeObject(ciphAux);
+		out.writeObject(userName);
 
 		int salt = (int)in.readObject();
 
@@ -170,12 +156,11 @@ public class myWhats {
 		String pwdSalt = pwd.concat(":"+saltStr);
 
 		//cria o hash
-		MessageDigest md = MessageDigest.getInstance("SHA-256");
+		md = MessageDigest.getInstance("SHA-256");
 		byte buf[] = pwdSalt.getBytes();
 		byte hash[] = md.digest(buf);
 		String pwdHash = new String (hash);
-		ciphAux = cAES.doFinal(pwdHash.getBytes());
-		out.writeObject(ciphAux);
+		out.writeObject(pwdHash);
 
 		int fromServer = (int) in.readObject();
 		int tries = 2;
@@ -188,8 +173,7 @@ public class myWhats {
 			System.err.print("Password ERRADA!\nTem " + tries + " tentativa(s)!\n");
 			tries --;
 			pwdHash = retryPwd(sc,saltStr);
-			ciphAux = cAES.doFinal(pwdHash.getBytes());
-			out.writeObject(ciphAux);
+			out.writeObject(pwdHash);
 			fromServer = (int) in.readObject();
 		}
 		if (fromServer == CHAR_ERROR){
@@ -204,11 +188,13 @@ public class myWhats {
 		}
 
 
-		//Cria uma keystore e vai buscar a private key do user
-		FileInputStream kfile = new FileInputStream("myClient.keyStore");
+		//Cria uma keystore e vai buscar a private key do user e inicia a cipher unwrap
+		FileInputStream kfile = new FileInputStream(userName + ".keyStore");
 		KeyStore kstore = KeyStore.getInstance("JKS");
-		kstore.load(kfile,ksPwd.toCharArray());
-		Key privateKey = kstore.getKey(userName,pwd.toCharArray());
+		kstore.load(kfile,pwd.toCharArray());
+		PrivateKey privateKey = (PrivateKey) kstore.getKey(userName,pwd.toCharArray());
+		Cipher cUnwrap = Cipher.getInstance("RSA");
+		cUnwrap.init(Cipher.UNWRAP_MODE, privateKey);
 
 
 		///////////////////////////////////////////////////////////////////
@@ -218,52 +204,54 @@ public class myWhats {
 		///////////////////////////////////////////////////////////////////
 
 		//envia o numero de argumentos
-		ciphAux = cAES.doFinal(Integer.toString(argsFinal.length).getBytes());
-		out.writeObject(ciphAux);
+		out.writeObject(argsFinal.length);
 
 		int x;
-		Certificate otherCert;
-		PublicKey otherPubKey;
+		Certificate cert;
 		String [] groupUsers = null;
 		//envia todos os argumentos
 		for (int i = 0; i < argsFinal.length; i++){
 			//encriptar a mensagem com a cifra assimetrica
-			if (argsFinal[0].equals("-m")){
-				if (i == 1) {
-					ciphAux = cAES.doFinal(argsFinal[i].getBytes());
-					out.writeObject(ciphAux);
+			if (argsFinal[0].equals("-m") || argsFinal[0].equals("-f")){
+				if (i == 0){
+					out.writeObject(argsFinal[i]);
+				}
+				else if (i == 1) {
+					out.writeObject(argsFinal[i]);
 					x = (int) in.readObject();
 					if (x != 1){
 						System.err.println(Errors.errorConfirm(x));
 						return;
 					}
-					// vai buscar a public key do outro user
-					try {
-						otherCert = kstore.getCertificate(argsFinal[1]);
-						otherPubKey = otherCert.getPublicKey();
-					} catch (KeyStoreException e) {
-						e.printStackTrace();
-					}
 					groupUsers = (String []) in.readObject();
 				}
-				else if (i == 2){
-					for(int j = 0; j < groupUsers.length; j++){
-						//ir buscar a public key de cada user a enviar
-						otherCert = kstore.getCertificate(groupUsers[j]);
-						otherPubKey = otherCert.getPublicKey();
-						cRSA.init(Cipher.ENCRYPT_MODE, otherPubKey);
-						ciphAux = cRSA.doFinal(argsFinal[2].getBytes());
+				else if (i == 2 && argsFinal[0].equals("-m")){
+					ciphAux = md.digest(argsFinal[2].getBytes());
+					out.writeObject(new String(ciphAux));
+					ciphAux = cAES.doFinal(argsFinal[2].getBytes());
+					out.writeObject(new String(ciphAux));
+
+					x = (int) in.readObject();
+					if (x != 1){
+						System.err.println(Errors.errorConfirm(x));
+						return;
+					}
+
+					for(int j = 0; j<groupUsers.length;j++){
+						cert = kstore.getCertificate(groupUsers[j]);
+						cWrap.init(Cipher.WRAP_MODE, cert);
+						ciphAux = cWrap.wrap(key);
 						out.writeObject(ciphAux);
+
 					}
 				}
-				else{
-					ciphAux = cAES.doFinal(argsFinal[i].getBytes());
-					out.writeObject(ciphAux);
+
+				else if (i == 2 && argsFinal[0].equals("-f")){
+					out.writeObject(argsFinal[i]);
 				}
 			}
 			else{
-				ciphAux = cAES.doFinal(argsFinal[i].getBytes());
-				out.writeObject(ciphAux);
+				out.writeObject(argsFinal[i]);
 			}
 		}
 
@@ -278,12 +266,7 @@ public class myWhats {
 		//envio de ficheiro
 		if(argsFinal.length >= 1){
 			if (argsFinal[0].equals("-f")){
-				if (argsFinal[2].startsWith("\\.") || argsFinal[2].contains("-") || argsFinal[2].contains("/") || argsFinal[2].contains("_")){
-					out.writeObject(-1);
-					System.err.println(Errors.errorConfirm(-12));
-					closeCon();
-					return;
-				}
+
 				File myFile = new File (argsFinal [2]);
 				if (!myFile.exists() || myFile.isDirectory()){
 					out.writeObject(-1);
@@ -291,9 +274,28 @@ public class myWhats {
 					closeCon();
 					return;
 				}
-				int fileSize = (int) myFile.length();
+
+				if (argsFinal[2].startsWith("\\.") || argsFinal[2].contains("-") || argsFinal[2].contains("/") || argsFinal[2].contains("_")){
+					out.writeObject(-1);
+					System.err.println(Errors.errorConfirm(-12));
+					closeCon();
+					return;
+				}
+				//se nao ocorrer erro nenhum
+				out.writeObject(1);
+
+				FileInputStream fisSig = new FileInputStream (myFile);
+				BufferedInputStream bisSig = new BufferedInputStream (fisSig);
+				byte [] byteArraySig = new byte [(int)myFile.length()];
+				bisSig.read(byteArraySig, 0, (int)myFile.length());
+				ciphAux = md.digest(byteArraySig);
+				out.writeObject(new String (ciphAux));
+
+				File fileAux = new File (argsFinal[2] + ".ciph");
+				cipherFile(myFile, fileAux, cAES);
+				int fileSize = (int) fileAux.length();
 				byte [] byteArray = new byte [fileSize];
-				FileInputStream fis = new FileInputStream (myFile);
+				FileInputStream fis = new FileInputStream (fileAux);
 				BufferedInputStream bis = new BufferedInputStream (fis);
 				int bytesRead;
 				int current = 0; 
@@ -316,9 +318,17 @@ public class myWhats {
 					out.flush();
 				}
 
+				//Envia as keys simetricas ao servidor 
+				for(int j = 0; j<groupUsers.length;j++){
+					cert = kstore.getCertificate(groupUsers[j]);
+					cWrap.init(Cipher.WRAP_MODE, cert.getPublicKey());
+					out.writeObject(new String(cWrap.wrap(key)));
+				}
+
 				bis.close();
 				fis.close();
 
+				fileAux.delete();
 			}
 
 			//recepcao de ficheiros
@@ -343,7 +353,12 @@ public class myWhats {
 				}
 				// -r que recebe tudo
 				else if(argsFinal.length == 1){
-					getLatestConvs(in,userName);
+					check = getLatestConvs(in,userName,cUnwrap);
+					if (check != 1){
+						System.err.println(Errors.errorConfirm(check));
+						closeCon();
+						return;
+					}
 				}
 			}
 		}
@@ -351,6 +366,9 @@ public class myWhats {
 		System.err.println(Errors.errorConfirm(confirm));
 		closeCon();
 	}
+
+
+
 	// ----------------------  FIM DO MAIN -----------------------------
 	// -----------------------------------------------------------------
 	//------------------------------------------------------------------
@@ -361,16 +379,49 @@ public class myWhats {
 	 * todos os seus contactos e grupos
 	 * @param in stream pela qual vai acontecer a comunicacao servidor cliente
 	 * @param userName nome do utilizador que esta a pedir as conversas
+	 * @throws BadPaddingException 
+	 * @throws IllegalBlockSizeException 
+	 * @throws NoSuchAlgorithmException 
+	 * @throws InvalidKeyException 
 	 */
-	private static void getLatestConvs(ObjectInputStream in, String userName) {
+	private static int getLatestConvs(ObjectInputStream in, String userName, Cipher cUnwrap) throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException {
 		try {
+			SecretKey secKey;
+			byte [] deciphMsg,sig, hash;
 			//numero de contactos que o utilizador tem
 			int nContacts = (int) in.readObject();
 			String [] receivedC;
 			for(int i = 0; i < nContacts; i++){
+				//recebe a mensagem cifrada
 				receivedC = (String[]) in.readObject();
-				if (receivedC != null)
-					printR0 (receivedC,userName,false);
+
+				if (receivedC == null)
+					return -14;
+
+				//Se for messagem
+				if (receivedC[4].equals("-m")){
+
+					//recebe a chave cifrada
+					ciphAux = (byte[]) in.readObject();
+					System.out.println(ciphAux);
+					secKey = (SecretKey) cUnwrap.unwrap(ciphAux, "AES", Cipher.SECRET_KEY);
+
+					//decifra a mensagem
+					cAES.init(Cipher.DECRYPT_MODE, secKey);
+					deciphMsg = cAES.doFinal(receivedC[3].getBytes());
+
+					//cria o hash
+					hash = md.digest(deciphMsg);
+
+					//recebe a sig e verifica a sua integridade
+					sig = (byte []) in.readObject();
+					if (!hash.equals(sig)){
+						return -13;
+					}
+					receivedC[3] = new String (deciphMsg);
+				}
+
+				printR0 (receivedC,userName,false);
 			}
 			//numero de grupos que o utilizador pertence
 			int nGroups = (int) in.readObject();
@@ -383,6 +434,7 @@ public class myWhats {
 		} catch (ClassNotFoundException | IOException e) {
 			e.printStackTrace();
 		}
+		return 1;
 	}
 
 	/**
@@ -582,6 +634,23 @@ public class myWhats {
 			z.concat("0");
 		}
 		return z.concat(num);
+	}
+
+	private static void cipherFile(File myFile,File fileAux, Cipher cAES) throws IOException {
+		FileInputStream is = new FileInputStream(myFile);
+		CipherOutputStream os = new CipherOutputStream(new FileOutputStream(fileAux), cAES);
+
+		copy(is, os);
+	}
+
+
+
+	private static void copy(FileInputStream is, CipherOutputStream os) throws IOException {
+		int i;
+		byte[] b = new byte[1024];
+		while((i=is.read(b))!=-1) {
+			os.write(b, 0, i);
+		}
 	}
 }
 
