@@ -1,6 +1,9 @@
 package domain.client;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -227,9 +230,10 @@ public class myWhats {
 				}
 				else if (i == 2 && argsFinal[0].equals("-m")){
 					ciphAux = md.digest(argsFinal[2].getBytes());
-					out.writeObject(new String(ciphAux));
+					//-------MUDEI AQUI 
+					out.writeObject(ciphAux);//tava string
 					ciphAux = cAES.doFinal(argsFinal[2].getBytes());
-					out.writeObject(new String(ciphAux));
+					out.writeObject(ciphAux);//tava string
 
 					x = (int) in.readObject();
 					if (x != 1){
@@ -242,7 +246,6 @@ public class myWhats {
 						cWrap.init(Cipher.WRAP_MODE, cert);
 						ciphAux = cWrap.wrap(key);
 						out.writeObject(ciphAux);
-
 					}
 				}
 
@@ -386,7 +389,7 @@ public class myWhats {
 	 */
 	private static int getLatestConvs(ObjectInputStream in, String userName, Cipher cUnwrap) throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException {
 		try {
-			SecretKey secKey;
+			Key secKey;
 			byte [] deciphMsg,sig, hash;
 			//numero de contactos que o utilizador tem
 			int nContacts = (int) in.readObject();
@@ -394,22 +397,34 @@ public class myWhats {
 			for(int i = 0; i < nContacts; i++){
 				//recebe a mensagem cifrada
 				receivedC = (String[]) in.readObject();
+				byte [] messCifrada = (byte[]) in.readObject();
 
 				if (receivedC == null)
 					return -14;
 
 				//Se for messagem
-				if (receivedC[4].equals("-m")){
+				if (receivedC[3].equals("-m")){
 
 					//recebe a chave cifrada
-					ciphAux = (byte[]) in.readObject();
-					System.out.println(ciphAux);
-					secKey = (SecretKey) cUnwrap.unwrap(ciphAux, "AES", Cipher.SECRET_KEY);
+					//byte [] ciphAux2 = (byte[]) in.readObject();
+					int sizerino = (int) in.readObject();
+					DataInputStream dis = new DataInputStream(in);
+					byte [] ciphAux2 = new byte [sizerino];
+					dis.readFully(ciphAux2);
+					
+					System.out.println(new String(ciphAux2));
+					System.out.println("---" + sizerino);
+
+					
+					
+					secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
 
 					//decifra a mensagem
 					cAES.init(Cipher.DECRYPT_MODE, secKey);
-					deciphMsg = cAES.doFinal(receivedC[3].getBytes());
-
+					deciphMsg = cAES.doFinal(messCifrada);
+				
+					System.out.println(new String(deciphMsg));
+					
 					//cria o hash
 					hash = md.digest(deciphMsg);
 

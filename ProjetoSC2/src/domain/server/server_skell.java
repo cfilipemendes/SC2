@@ -202,12 +202,12 @@ public class server_skell {
 	/**
 	 * Envia uma mensagem para um contacto
 	 * @param contact contacto do destinatario
-	 * @param mess conteudo da mensagem
+	 * @param menssagemCifrada conteudo da mensagem
 	 * @param from emissor da mensagem
 	 * @param from 
 	 */
-	public void doMoperation(String to, String mess, String sig, String from) {
-		files.newMessage(to, mess, sig, from);
+	public void doMoperation(String to, byte[] menssagemCifrada, byte[] sig, String from) {
+		files.newMessage(to, menssagemCifrada, sig, from);
 	}
 	/**
 	 * Envia um mensagem para um grupo
@@ -217,8 +217,10 @@ public class server_skell {
 	 * @param username 
 	 * @param groupUsers 
 	 */
-	public void doMGroupOperation(String groupname, String mess, String sig, String from) {
-		files.newGroupMessage(groupname, mess, sig, from);
+	public void doMGroupOperation(String groupname, String mess, byte[] sig, String from) {
+		//AQUUIIII
+		//AOISHWHFCICAINC
+		//files.newGroupMessage(groupname, mess, sig, from);
 	}
 	/**
 	 * Envia um ficheiro para um contacto
@@ -227,8 +229,10 @@ public class server_skell {
 	 * @param username nome do utilizador autenticado
 	 * @param sig 
 	 */
-	public void doFoperation(String contact, String fich, String username, int fileSize,String sig, ObjectInputStream inStream) {
-		files.saveFile(contact,fich,username,fileSize,sig,inStream);
+	public void doFoperation(String contact, String fich, String username, int fileSize,byte[] sig, ObjectInputStream inStream) {
+		//AQUUIIII
+				//AOISHWHFCICAINC
+		//files.saveFile(contact,fich,username,fileSize,sig,inStream);
 	}
 	
 	/**
@@ -240,8 +244,10 @@ public class server_skell {
 	 * @param sig 
 	 * @param inStream stream de dados do socket
 	 */
-	public void doFoperationGroup(String contact, String fich, String username, int fileSize,String sig, ObjectInputStream inStream) {	
-		files.saveFileGroup(contact,fich,username,fileSize,sig,inStream);
+	public void doFoperationGroup(String contact, String fich, String username, int fileSize,byte[] sig, ObjectInputStream inStream) {	
+		//AQUUIIII
+				//AOISHWHFCICAINC
+		//files.saveFileGroup(contact,fich,username,fileSize,sig,inStream);
 	}
 
 	/**

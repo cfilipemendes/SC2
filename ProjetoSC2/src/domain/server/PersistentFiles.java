@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -132,46 +133,66 @@ public class PersistentFiles {
 	/**
 	 * cria uma nova mensagem e adiciona ah directoria do remetente e do que enviou
 	 * @param to nome do remetente
-	 * @param mess conteudo da mensagem
+	 * @param menssagemCifrada conteudo da mensagem
 	 * @param from nome de quem enviou
 	 * @param from2 
 	 */
-	public synchronized void newMessage(String to, String mess, String sig, String from) {
+	public synchronized void newMessage(String to, byte[] menssagemCifrada, byte[] sig, String from) {
 		File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to);
+		FileOutputStream fos;
 		if (!dir.exists())
 			dir.mkdir();
 		try {
 			data = GregorianCalendar.getInstance().getTime();
 			File messageFrom = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt");
 			messageFrom.createNewFile();
-			BufferedWriter bw = new BufferedWriter(new FileWriter(messageFrom));	
-			bw.write(mess);
-			bw.flush();
-			bw.close();
+			fos = new FileOutputStream(messageFrom);
+			fos.write(menssagemCifrada);
+			fos.flush();
+			fos.close();
+			//BufferedWriter bw = new BufferedWriter(new FileWriter(messageFrom));	
+			//bw.write(menssagemCifrada);
+			//bw.flush();
+			//bw.close();
 
 			File sigFrom = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".sig");
 			sigFrom.createNewFile();
-			bw = new BufferedWriter(new FileWriter(sigFrom));	
+			fos = new FileOutputStream(sigFrom);
+			fos.write(sig);
+			fos.flush();
+			fos.close();
+			/*bw = new BufferedWriter(new FileWriter(sigFrom));	
 			bw.write(sig);
 			bw.flush();
 			bw.close();
+			*/
 
 			dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from);
 			if (!dir.exists())
 				dir.mkdir();
 			File messageTo = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt");
 			messageTo.createNewFile();
-			bw = new BufferedWriter(new FileWriter(messageTo));	
-			bw.write(mess);
+			fos = new FileOutputStream(messageTo);
+			fos.write(menssagemCifrada);
+			fos.flush();
+			fos.close();
+			/*bw = new BufferedWriter(new FileWriter(messageTo));	
+			bw.write(menssagemCifrada);
 			bw.flush();
 			bw.close();
+			*/
 
 			File sigTo = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from + "//" + from + "_" + to + "_" + sdf.format(data) + ".sig");
 			sigTo.createNewFile();
-			bw = new BufferedWriter(new FileWriter(sigTo));	
+			fos = new FileOutputStream(sigTo);
+			fos.write(sig);
+			fos.flush();
+			fos.close();
+			/*bw = new BufferedWriter(new FileWriter(sigTo));	
 			bw.write(sig);
 			bw.flush();
 			bw.close();
+			*/
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -690,6 +711,8 @@ public class PersistentFiles {
 		}
 		return sb.toString();
 	}
+	
+	
 
 	/**
 	 * envia para o cliente as ultimas mensagens que o user tem com os seu contactos e com os seus grupos
@@ -708,6 +731,7 @@ public class PersistentFiles {
 			i = numFiles(myDir);
 			outStream.writeObject(i);
 			outStream.flush();
+
 			for (File f : myDir.listFiles()){
 				//em caso de files gerados pelo sistema
 				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1).startsWith(".")) {
@@ -725,17 +749,24 @@ public class PersistentFiles {
 							nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
 						}
 						if (!nameAux.startsWith(".")){
-							finalF = new String [5];
+							finalF = new String [4];
 							fileName = nameAux.split("_");
 							//se o ficheiro for message
 							if (fileName.length == 4){
 								finalF [0] = fileName[0];
 								finalF [1] = fileName[1];
 								finalF [2] = (fileName[2] + "_" + fileName[3]);
-								finalF [3] = readFile(aux[i]);
-								finalF [4] = "-m";
+								finalF [3] = "-m";
+								//vai buscar mensagem
+								FileInputStream fin = new FileInputStream(aux[i]);
+								byte [] fileContent = new byte[(int)aux[i].length()];
+								fin.read(fileContent);
+								fin.close();
+
 								//envia a mensagem cifrada
 								outStream.writeObject(finalF);
+								outStream.flush();
+								outStream.writeObject(fileContent);
 								outStream.flush();
 
 								i = 0;
@@ -743,21 +774,26 @@ public class PersistentFiles {
 									i++;
 									nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
 								}
-								FileInputStream fis = new FileInputStream (aux[i]);
-								BufferedInputStream bis = new BufferedInputStream (fis);
-
-								byte [] keyCiph = new byte [256];
-								bis.read(keyCiph, 0, 256);
-								outStream.writeObject(keyCiph);
-								bis.close();
-								fis.close();
+								int sizerino = (int) aux[i].length();
+								byte [] keyCiph = new byte [sizerino];
+								fin = new FileInputStream(aux[i]);
+								fin.read(keyCiph);
+								fin.close();
+								System.out.println(new String(keyCiph));
+								System.out.println("---" + sizerino);
+								outStream.writeObject(sizerino);
+								DataOutputStream dos = new DataOutputStream(outStream);
+							    if (sizerino > 0) {
+							        dos.write(keyCiph, 0, sizerino);
+							    }
+								
 
 								i = 0;
 								while(!nameAux.contains(nameAux + ".sig") && (aux.length > i+1)){
 									i++;
 									nameAux = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
 								}
-								outStream.writeObject(readFile(aux[i]).getBytes());
+								outStream.writeObject(readFile(aux[i]).getBytes());//TROCAR ISTO!
 
 							}
 							//se o ficheiro for file
@@ -885,8 +921,8 @@ public class PersistentFiles {
 
 	public void saveContactKey(String to, String contact, byte [] readKey, String username, boolean msg, String filename) {
 		File dir;
-		FileOutputStream message;
-		FileOutputStream messageTo;
+		File message;
+		File messageTo;
 		BufferedWriter bw;
 		ObjectOutputStream oos;
 		try {
@@ -896,19 +932,28 @@ public class PersistentFiles {
 					dir.mkdir();
 				data = GregorianCalendar.getInstance().getTime();
 				if (msg)
-					message = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
+					message = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
 				else
-					message = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
+					message = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
 
+				message.createNewFile();
+				FileOutputStream fos = new FileOutputStream(message);
+				fos.write(readKey);
+				fos.flush();
+				fos.close();
+				/*
 				//message.createNewFile();
 				//bw = new BufferedWriter(new FileWriter(message));
 				oos = new ObjectOutputStream(message);
 				oos.write(readKey);
+				oos.flush();
 				oos.close();
 				message.close();
 				//bw.write(readKey);
 				//bw.flush();
 				//bw.close();
+				 * */
+				 
 			}
 
 			else{
@@ -916,20 +961,29 @@ public class PersistentFiles {
 				if (!dir.exists())
 					dir.mkdir();
 				if (msg)
-					messageTo = new FileOutputStream (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
+					messageTo = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
 				else
-					messageTo = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
+					messageTo = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
 
-				//messageTo.createNewFile();
-				//bw = new BufferedWriter(new FileWriter(messageTo));
+				messageTo.createNewFile();
+				FileOutputStream fos = new FileOutputStream(messageTo);
+				fos.write(readKey);
+				fos.flush();
+				fos.close();
 				
+				
+				/*//messageTo.createNewFile();
+				//bw = new BufferedWriter(new FileWriter(messageTo));
 				oos = new ObjectOutputStream(messageTo);
 				oos.write(readKey);
+				oos.flush();
 				oos.close();
 				messageTo.close();
 				//bw.write(readKey);
 				//bw.flush();
 				//bw.close();
+				 * */
+				 
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
