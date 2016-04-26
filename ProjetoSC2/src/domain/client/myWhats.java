@@ -410,13 +410,13 @@ public class myWhats {
 					DataInputStream dis = new DataInputStream(in);
 					byte [] ciphAux2 = new byte [sizerino];
 					dis.readFully(ciphAux2);
-					
+
 					secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
 
 					//decifra a mensagem
 					cAES.init(Cipher.DECRYPT_MODE, secKey);
 					deciphMsg = cAES.doFinal(messCifrada);
-									
+
 					//cria o hash
 					hash = md.digest(deciphMsg);
 
@@ -435,8 +435,38 @@ public class myWhats {
 			String [] receivedU;
 			for(int i = 0; i < nGroups; i++){
 				receivedU = (String[]) in.readObject();
-				if (receivedU != null)
-					printR0 (receivedU,userName,true);
+				if (receivedU == null)
+					return -14;
+				
+				//Se for messagem
+				if (receivedU[4].equals("-m")){
+					byte [] messCifrada = (byte[]) in.readObject();
+					
+					//recebe a chave cifrada
+					int sizerino = (int) in.readObject();
+					DataInputStream dis = new DataInputStream(in);
+					byte [] ciphAux2 = new byte [sizerino];
+					dis.readFully(ciphAux2);
+					
+					secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
+
+					//decifra a mensagem
+					cAES.init(Cipher.DECRYPT_MODE, secKey);
+					deciphMsg = cAES.doFinal(messCifrada);
+					
+					System.out.println(new String (deciphMsg));
+
+					//cria o hash
+					hash = md.digest(deciphMsg);
+
+					//recebe a sig e verifica a sua integridade
+					sig = (byte []) in.readObject();
+					if (!MessageDigest.isEqual(sig, hash)){
+						return -13;
+					}
+					receivedU[3] = new String (deciphMsg);
+				}
+				printR0 (receivedU,userName,true);
 			}
 		} catch (ClassNotFoundException | IOException e) {
 			e.printStackTrace();

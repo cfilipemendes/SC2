@@ -732,6 +732,7 @@ public class PersistentFiles {
 								outStream.writeObject(fileContent);
 								outStream.flush();
 
+								//vai buscar a key
 								i = aux.length-1;
 								keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
 								while(!keyname.contains(name + ".key." + username) && (i >= 0)){
@@ -745,8 +746,10 @@ public class PersistentFiles {
 								fin.close();
 								outStream.writeObject(sizerino);
 								DataOutputStream dos = new DataOutputStream(outStream);
+								//envia a key
 								dos.write(keyCiph, 0, sizerino);
 								
+								//vai buscar o sig
 								i = aux.length-1;
 								String nameAux = name.split("\\.")[0];
 								signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
@@ -758,6 +761,7 @@ public class PersistentFiles {
 								fin = new FileInputStream(aux[i]);
 								fin.read(sig);
 								fin.close();
+								//envia o sig
 								outStream.writeObject(sig);
 
 							}
@@ -794,7 +798,7 @@ public class PersistentFiles {
 				//em caso de files gerados pelo sistema
 				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1).startsWith(".")) {
 					aux = sortFiles(f);
-					i = 0;
+					i = aux.length-1;
 					if (aux.length == 0){
 						outStream.writeObject(null);
 						outStream.flush();
@@ -805,22 +809,65 @@ public class PersistentFiles {
 					}
 					else{
 						name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-						while((name.startsWith(".") || name.equals(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1) + ".txt"))
-								&& (aux.length > i+1)){
-							i++;
+						while((name.startsWith(".") || name.equals(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1) + ".txt")
+								|| name.contains(".sig") || name.contains(".key")) && (i >= 0)){
+							i--;
 							name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
 						}
 						if (!name.startsWith(".")){
-							finalF = new String [4];
+							finalF = new String [5];
 							fileName = name.split("_");
 							//se o ficheiro for message
 							if (fileName.length == 4){
 								finalF [0] = fileName[0];
 								finalF [1] = fileName[1];
 								finalF [2] = (fileName[2] + "_" + fileName[3]);
-								finalF [3] = readFile(aux[i]);
+								finalF [4] = "-m";
+								//vai buscar mensagem
+								FileInputStream fin = new FileInputStream(aux[i]);
+								byte [] fileContent = new byte[(int)aux[i].length()];
+								fin.read(fileContent);
+								fin.close();
+								
+								//envia a mensagem cifrada
 								outStream.writeObject(finalF);
 								outStream.flush();
+								outStream.writeObject(fileContent);
+								outStream.flush();
+								
+
+								//vai buscar a key
+								i = aux.length-1;
+								keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+								while(!keyname.contains(name + ".key." + username) && (i >= 0)){
+									i--;
+									keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+								}
+								int sizerino = (int) aux[i].length();
+								byte [] keyCiph = new byte [sizerino];
+								fin = new FileInputStream(aux[i]);
+								fin.read(keyCiph);
+								fin.close();
+								outStream.writeObject(sizerino);
+								DataOutputStream dos = new DataOutputStream(outStream);
+								//envia a key
+								dos.write(keyCiph, 0, sizerino);
+								
+								//vai buscar o sig
+								i = aux.length-1;
+								String nameAux = name.split("\\.")[0];
+								signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+								while(!signame.contains(nameAux + ".sig") && (i >= 0)){
+									i--;
+									signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+								}
+								byte [] sig2 = new byte [(int) aux[i].length()];
+								fin = new FileInputStream(aux[i]);
+								fin.read(sig2);
+								fin.close();
+								//envia o sig
+								outStream.writeObject(sig2);
+								
 							}
 							//se o ficheiro for file
 							else if (fileName.length == 5){
@@ -828,6 +875,7 @@ public class PersistentFiles {
 								finalF [1] = fileName[1];
 								finalF [2] = (fileName[2] + "_" + fileName[3]);
 								finalF [3] = fileName[4];
+								finalF [4] = "-f";
 								outStream.writeObject(finalF);
 								outStream.flush();
 							}
