@@ -230,7 +230,6 @@ public class myWhats {
 				}
 				else if (i == 2 && argsFinal[0].equals("-m")){
 					ciphAux = md.digest(argsFinal[2].getBytes());
-					//-------MUDEI AQUI 
 					out.writeObject(ciphAux);//tava string
 					ciphAux = cAES.doFinal(argsFinal[2].getBytes());
 					out.writeObject(ciphAux);//tava string
@@ -292,7 +291,7 @@ public class myWhats {
 				byte [] byteArraySig = new byte [(int)myFile.length()];
 				bisSig.read(byteArraySig, 0, (int)myFile.length());
 				ciphAux = md.digest(byteArraySig);
-				out.writeObject(new String (ciphAux));
+				out.writeObject(ciphAux);
 
 				File fileAux = new File (argsFinal[2] + ".ciph");
 				cipherFile(myFile, fileAux, cAES);
@@ -325,7 +324,8 @@ public class myWhats {
 				for(int j = 0; j<groupUsers.length;j++){
 					cert = kstore.getCertificate(groupUsers[j]);
 					cWrap.init(Cipher.WRAP_MODE, cert.getPublicKey());
-					out.writeObject(new String(cWrap.wrap(key)));
+					ciphAux = cWrap.wrap(key);
+					out.writeObject(ciphAux);
 				}
 
 				bis.close();
@@ -397,40 +397,32 @@ public class myWhats {
 			for(int i = 0; i < nContacts; i++){
 				//recebe a mensagem cifrada
 				receivedC = (String[]) in.readObject();
-				byte [] messCifrada = (byte[]) in.readObject();
 
 				if (receivedC == null)
 					return -14;
 
 				//Se for messagem
-				if (receivedC[3].equals("-m")){
+				if (receivedC[4].equals("-m")){
+					byte [] messCifrada = (byte[]) in.readObject();
 
 					//recebe a chave cifrada
-					//byte [] ciphAux2 = (byte[]) in.readObject();
 					int sizerino = (int) in.readObject();
 					DataInputStream dis = new DataInputStream(in);
 					byte [] ciphAux2 = new byte [sizerino];
 					dis.readFully(ciphAux2);
-					
-					System.out.println(new String(ciphAux2));
-					System.out.println("---" + sizerino);
-
-					
 					
 					secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
 
 					//decifra a mensagem
 					cAES.init(Cipher.DECRYPT_MODE, secKey);
 					deciphMsg = cAES.doFinal(messCifrada);
-				
-					System.out.println(new String(deciphMsg));
-					
+									
 					//cria o hash
 					hash = md.digest(deciphMsg);
 
 					//recebe a sig e verifica a sua integridade
 					sig = (byte []) in.readObject();
-					if (!hash.equals(sig)){
+					if (!MessageDigest.isEqual(sig, hash)){
 						return -13;
 					}
 					receivedC[3] = new String (deciphMsg);
@@ -608,9 +600,9 @@ public class myWhats {
 	private static void printR1(String[] received, String userName) {
 		StringBuilder sb = new StringBuilder ();
 		if (!received[0].equals(userName))
-			sb.append(received[0] + ": " + received[3]);
+			sb.append(received[0] + ": " + received[3] + "\n");
 		else
-			sb.append("me: " + received[3]);//oi
+			sb.append("me: " + received[3] + "\n");
 		String[] data = received[2].split("_");
 		if (data[1].contains(".")){
 			String [] horaAux = data[1].split("\\.");

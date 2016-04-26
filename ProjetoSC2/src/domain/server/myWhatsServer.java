@@ -192,7 +192,7 @@ public class myWhatsServer {
 					//recebe o bytearray do numero de args
 					numArgs = (int) inStream.readObject();
 
-					byte [] menssagemCifrada;
+					byte [] mensagemCifrada;
 					String [] arguments = new String [numArgs];
 					String [] groupUsers = null;
 					boolean user = false;
@@ -229,14 +229,14 @@ public class myWhatsServer {
 							}
 							else if (i == 2 && arguments[0].equals("-m")){
 								sig = (byte[]) inStream.readObject();
-								menssagemCifrada = (byte[]) inStream.readObject();
+								mensagemCifrada = (byte[]) inStream.readObject();
 
 								//guarda as mensagens
 								if(user) {
-									skell.doMoperation(arguments[1],menssagemCifrada,sig,username);
+									skell.doMoperation(arguments[1],mensagemCifrada,sig,username);
 								}
 								else if (group){
-									skell.doMGroupOperation(arguments[1],arguments[2],sig,username);
+									skell.doMGroupOperation(arguments[1],mensagemCifrada,sig,username);
 								}
 								else{
 									outStream.writeObject(-1);
@@ -260,13 +260,6 @@ public class myWhatsServer {
 						}
 					}
 
-					//Se a recepcao de parametros nao for fiavel
-					/*if (skell.validate (arguments) != 1){
-						outStream.writeObject(ARGS_ERROR);
-						closeThread();
-						return;
-					}*/
-					//else
 					{
 						confirm = 1;
 						outStream.writeObject(1);//correu tudo bem com os argumentos recebidos

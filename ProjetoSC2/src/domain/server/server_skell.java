@@ -217,10 +217,8 @@ public class server_skell {
 	 * @param username 
 	 * @param groupUsers 
 	 */
-	public void doMGroupOperation(String groupname, String mess, byte[] sig, String from) {
-		//AQUUIIII
-		//AOISHWHFCICAINC
-		//files.newGroupMessage(groupname, mess, sig, from);
+	public void doMGroupOperation(String groupname, byte[] mensagemCifrada, byte[] sig, String from) {
+		files.newGroupMessage(groupname, mensagemCifrada, sig, from);
 	}
 	/**
 	 * Envia um ficheiro para um contacto
@@ -230,9 +228,7 @@ public class server_skell {
 	 * @param sig 
 	 */
 	public void doFoperation(String contact, String fich, String username, int fileSize,byte[] sig, ObjectInputStream inStream) {
-		//AQUUIIII
-				//AOISHWHFCICAINC
-		//files.saveFile(contact,fich,username,fileSize,sig,inStream);
+		files.saveFile(contact,fich,username,fileSize,sig,inStream);
 	}
 	
 	/**
@@ -245,9 +241,7 @@ public class server_skell {
 	 * @param inStream stream de dados do socket
 	 */
 	public void doFoperationGroup(String contact, String fich, String username, int fileSize,byte[] sig, ObjectInputStream inStream) {	
-		//AQUUIIII
-				//AOISHWHFCICAINC
-		//files.saveFileGroup(contact,fich,username,fileSize,sig,inStream);
+		files.saveFileGroup(contact,fich,username,fileSize,sig,inStream);
 	}
 
 	/**
@@ -352,8 +346,8 @@ public class server_skell {
 	public void saveKey(String to,String contact, boolean user, byte [] readKey, String username,boolean msg, String filename) {
 		if (user)
 			files.saveContactKey(to,contact,readKey,username,msg,filename);
-		//else
-			//files.saveGroupKey(to,contact,readKey,username,msg,filename);
+		else
+			files.saveGroupKey(to,contact,readKey,username,msg,filename);
 
 	}
 	
