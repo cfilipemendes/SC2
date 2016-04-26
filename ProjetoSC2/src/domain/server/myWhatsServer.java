@@ -18,14 +18,7 @@ import java.net.Socket;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.Mac;
-import javax.crypto.NoSuchPaddingException;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
@@ -39,7 +32,6 @@ public class myWhatsServer {
 	private final int SALT_ERROR = -64;
 	private final int CHAR_ERROR = -65;
 	private final int PW_ERROR = -66;
-	private final int ARGS_ERROR = -67;
 	private final int REG_ERROR = -68;
 	private server_skell skell;
 	private String pwdMac;
@@ -110,7 +102,6 @@ public class myWhatsServer {
 				inStream = new ObjectInputStream(socket.getInputStream());
 				int numArgs, confirm;
 				String username,password;
-				byte [] ciphAux, deciphAux;
 				try {
 
 					/*
@@ -125,7 +116,6 @@ public class myWhatsServer {
 					mac = m.doFinal();
 					 */
 
-					Cipher c = Cipher.getInstance("RSA");
 
 					username = (String) inStream.readObject();
 
@@ -179,8 +169,6 @@ public class myWhatsServer {
 					FileInputStream kfile = new FileInputStream("trustedServer.keyStore");
 					KeyStore kstore = KeyStore.getInstance("JKS");
 					kstore.load(kfile,ksPwd.toCharArray());
-					Certificate cert = kstore.getCertificate(username);
-					PublicKey publicKUser = cert.getPublicKey();
 
 					///////////////////////////////////////////////////////////////////
 					//////////////////ACABOU O REGISTO E AUTENTICACAO//////////////////
@@ -247,7 +235,7 @@ public class myWhatsServer {
 								//recebe e guarda as keys 
 								for(int j = 0; j < groupUsers.length; j++){
 									readKey = (byte []) inStream.readObject();
-									
+
 									skell.saveKey(arguments[1],groupUsers[j],user,readKey,username,true,null);
 								}
 							}
@@ -260,98 +248,97 @@ public class myWhatsServer {
 						}
 					}
 
-					{
-						confirm = 1;
-						outStream.writeObject(1);//correu tudo bem com os argumentos recebidos
-						if (arguments.length != 0){
-							switch(arguments[0]){
-							case "-f":
-								int val = (int) inStream.readObject();
-								if (val == -1){
-									closeThread();
-									return;
-								}
+					confirm = 1;
+					outStream.writeObject(1);//correu tudo bem com os argumentos recebidos
+					if (arguments.length != 0){
+						switch(arguments[0]){
+						case "-f":
+							int val = (int) inStream.readObject();
+							if (val == -1){
+								closeThread();
+								return;
+							}
 
-								sig = (byte []) inStream.readObject();
+							sig = (byte []) inStream.readObject();
 
-								int fileSize = (int) inStream.readObject();
+							int fileSize = (int) inStream.readObject();
 
-								if (arguments[2].startsWith("\\.") || arguments[2].contains("-") || arguments[2].contains("/") || arguments[2].contains("_")){
-									closeThread();
-									return;
-								}
-								if (user)
-									skell.doFoperation(arguments[1],arguments[2],username,fileSize,sig,inStream);
-								else if (group)
-									skell.doFoperationGroup(arguments[1],arguments[2],username,fileSize,sig,inStream);
-								else{
-									confirm = -1;
-									break;
-								}
-								//recebe e guarda as keys 
-								for(int j = 0; j < groupUsers.length; j++){
-									readKey = (byte []) inStream.readObject();
-									skell.saveKey(arguments[1],groupUsers[j],user,readKey,username,false,arguments[2]);
-								}
-								break;
-							case "-r":
-								if (numArgs == 1){
-									skell.doR0operation(username,outStream);
-								}
-								else if (skell.isUser(arguments[1]) != null) {
-									outStream.writeObject(1);
-									if (numArgs == 2)
-										confirm = skell.doR1operation(username,arguments[1],outStream,true);
-									else
-										confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,true);
-								}
-								else if (skell.isGroup(arguments[1]) != null) {
-									if (skell.hasUserInGroup(arguments[1], username)) {
-										outStream.writeObject(1);
-										if (numArgs == 2)
-											confirm = skell.doR1operation(username,arguments[1],outStream,false);
-										else {
-											confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,false);
-											if (confirm == -10)
-												break;
-										}
-									}
-									else{
-										outStream.writeObject(-7);
-										closeThread();
-										return;
-									}
-								}
-								else{
-									outStream.writeObject(-1);
-									closeThread();
-									return;
-								}
-								break;
-							case "-a":
-								if (skell.isUser(arguments[1]) != null){
-									if (skell.isUser(arguments[2]) == null){
-										if (arguments[2].startsWith("\\.") || arguments[2].contains("-") || arguments[2].contains("/") || arguments[2].contains("_")){
-											confirm = CHAR_ERROR;
-										}
-										else
-											confirm = skell.doAoperation(arguments[1],arguments[2],username);
-									}
-									else
-										confirm = REG_ERROR;
-								}
-								else
-									confirm = -1;
-								break;
-							case "-d":
-								confirm = skell.doDoperation(arguments[1],arguments[2],username);
+							if (arguments[2].startsWith("\\.") || arguments[2].contains("-") || arguments[2].contains("/") || arguments[2].contains("_")){
+								closeThread();
+								return;
+							}
+							if (user)
+								skell.doFoperation(arguments[1],arguments[2],username,fileSize,sig,inStream);
+							else if (group)
+								skell.doFoperationGroup(arguments[1],arguments[2],username,fileSize,sig,inStream);
+							else{
+								confirm = -1;
 								break;
 							}
+							//recebe e guarda as keys 
+							for(int j = 0; j < groupUsers.length; j++){
+								readKey = (byte []) inStream.readObject();
+								skell.saveKey(arguments[1],groupUsers[j],user,readKey,username,false,arguments[2]);
+							}
+							break;
+						case "-r":
+							if (numArgs == 1){
+								skell.doR0operation(username,outStream);
+							}
+							else if (skell.isUser(arguments[1]) != null) {
+								outStream.writeObject(1);
+								if (numArgs == 2)
+									confirm = skell.doR1operation(username,arguments[1],outStream,true);
+								else
+									confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,true);
+							}
+							else if (skell.isGroup(arguments[1]) != null) {
+								if (skell.hasUserInGroup(arguments[1], username)) {
+									outStream.writeObject(1);
+									if (numArgs == 2)
+										confirm = skell.doR1operation(username,arguments[1],outStream,false);
+									else {
+										confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,false);
+										if (confirm == -10)
+											break;
+									}
+								}
+								else{
+									outStream.writeObject(-7);
+									closeThread();
+									return;
+								}
+							}
+							else{
+								outStream.writeObject(-1);
+								closeThread();
+								return;
+							}
+							break;
+						case "-a":
+							if (skell.isUser(arguments[1]) != null){
+								if (skell.isUser(arguments[2]) == null){
+									if (arguments[2].startsWith("\\.") || arguments[2].contains("-") || arguments[2].contains("/") || arguments[2].contains("_")){
+										confirm = CHAR_ERROR;
+									}
+									else
+										confirm = skell.doAoperation(arguments[1],arguments[2],username);
+								}
+								else
+									confirm = REG_ERROR;
+							}
+							else
+								confirm = -1;
+							break;
+						case "-d":
+							confirm = skell.doDoperation(arguments[1],arguments[2],username);
+							break;
 						}
 					}
+
 					outStream.writeObject(confirm);
 
-				}catch (ClassNotFoundException | NoSuchAlgorithmException | NoSuchPaddingException | KeyStoreException | CertificateException e1) {
+				}catch (ClassNotFoundException | NoSuchAlgorithmException | KeyStoreException | CertificateException e1) {
 					e1.printStackTrace();
 				}	
 

@@ -72,8 +72,8 @@ public class server_skell {
 		return files.hasUserInGroup(groupname, user);
 
 	}
-	
-	
+
+
 	public String[] usersInGroup(String groupname){
 		return files.usersInGroup(groupname);
 	}
@@ -161,15 +161,7 @@ public class server_skell {
 		}
 		return 1;
 	}
-	
-	private static boolean argThree(int i , String [] args, int size){
-		if(i+3 > size)
-			return false;
-		if (flags.contains(args[i+1]) || flags.contains(args[i+2]) || flags.contains(args[i+3]))
-			return false;
-		return true;
-	}
-	
+
 	/**
 	 * Testa se uma flag de 2 parametros e bem passado ao programa
 	 * @param i indice do parametro a avaliar
@@ -230,7 +222,7 @@ public class server_skell {
 	public void doFoperation(String contact, String fich, String username, int fileSize,byte[] sig, ObjectInputStream inStream) {
 		files.saveFile(contact,fich,username,fileSize,sig,inStream);
 	}
-	
+
 	/**
 	 * Envia um ficheiro para um grupo
 	 * @param contact nome do grupo para enviar o ficheiro
@@ -262,6 +254,8 @@ public class server_skell {
 	 * @return 1 em caso de sucesso
 	 */
 	public int doR1operation(String username, String contact, ObjectOutputStream outStream,boolean user) {
+		if (user)
+			return files.getContactConv(username,contact,outStream,user);
 		return files.getContactConv(username,contact,outStream,user);
 	}
 
@@ -350,5 +344,5 @@ public class server_skell {
 			files.saveGroupKey(to,contact,readKey,username,msg,filename);
 
 	}
-	
+
 }

@@ -45,6 +45,8 @@ public class Errors {
 			return "O ficheiro foi corrompido";
 		case -14:
 			return "O servidor enviou incorrectamente os dados";
+		case -15:
+			return "Erro no tamanho do ficheiro a ser recebido do servidor";
 		case CHAR_ERROR:
 			return "O nome nao pode conter os seguintes caracteres: _,/,-,.";
 		case ARGS_ERROR:

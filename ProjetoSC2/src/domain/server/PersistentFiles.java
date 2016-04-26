@@ -1,7 +1,6 @@
 package domain.server;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
@@ -12,7 +11,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.text.SimpleDateFormat;
@@ -189,7 +187,7 @@ public class PersistentFiles {
 			fos.close();
 
 			fos = new FileOutputStream(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + from + "_" + groupname + "_" + sdf.format(data) + ".sig");
-			fos.write(mensagemCifrada);
+			fos.write(sig);
 			fos.flush();
 			fos.close();
 		} catch (IOException e) {
@@ -408,8 +406,8 @@ public class PersistentFiles {
 			//Cria o ficheiro no From
 			fosFrom = new FileOutputStream(new File(".").getAbsolutePath() + 
 					"//" + usersDir + "//"+ username + "//" + contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
-			
-			
+
+
 			//Escreve o sig no To
 			FileOutputStream fosTo = new FileOutputStream(new File(".").getAbsolutePath() + 
 					"//" + usersDir + "//" + contact + "//" + username + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
@@ -527,7 +525,7 @@ public class PersistentFiles {
 		File myDir = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + group);
 		String nameAux;
 		for (File f : myDir.listFiles()){
-			nameAux = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1));
+			nameAux = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
 			if (!nameAux.startsWith(".") && (nameAux.split("_").length == 5))
 				if (nameAux.split("_")[4].equals(fich))
 					return f;
@@ -537,7 +535,7 @@ public class PersistentFiles {
 
 	/**
 	 * envia o ficheiro para o cliente
-	 * @param from nome de quem enviou o ficheiro
+	 * @param from nome de quem enviou o pedido
 	 * @param contact nome do remetente
 	 * @param fich nome do fichero
 	 * @param outStream stream pela qual vai acontecer a comunicacao servidor cliente
@@ -545,17 +543,26 @@ public class PersistentFiles {
 	 * @return int 1 se for bem sucedido e -10 se nao existir ficheiro
 	 */
 	public int getFile(String from,String contact, String fich, ObjectOutputStream outStream,boolean user) {
-		File myFile;
-		if (user)
+		File myFile,myDir;
+		FileInputStream fin;
+		int i;
+		String keyname,name,signame;
+		if (user){
 			myFile = userHasFile(from,contact,fich);
-		else
+			myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + contact);
+		}
+		else{
 			myFile = groupHasFile(contact,fich);
+			myDir = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + contact);
+		}
+		File[] aux = sortFiles(myDir);
 		try {
 			if (myFile == null){
 				outStream.writeObject(-10);
 				return -10;			
 			}
-
+			name = (myFile.getAbsolutePath().substring(myFile.getAbsolutePath().lastIndexOf(File.separator)+1));
+			//envia o tamanho do ficheiro
 			int fileSize = (int) myFile.length();
 			outStream.writeObject(fileSize);
 			byte [] byteArray = new byte [fileSize];
@@ -567,7 +574,7 @@ public class PersistentFiles {
 			int nCiclo = fileSize/PACKET_SIZE;
 			int resto = fileSize%PACKET_SIZE;
 
-			for (int i = 0; i < nCiclo; i++){
+			for (int j = 0; j < nCiclo; j++){
 				bytesRead = bis.read(byteArray,current,PACKET_SIZE);
 				outStream.write(byteArray,current,bytesRead);
 
@@ -584,6 +591,43 @@ public class PersistentFiles {
 
 			bis.close();
 			fis.close();
+
+			//vai buscar a key
+			i = aux.length-1;
+			keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+			while(!keyname.contains(name + ".key." + from)){
+				i--;
+				if (i<0)
+					break;
+				keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+			}
+			int sizerino = (int) aux[i].length();
+			byte [] keyCiph = new byte [sizerino];
+			fin = new FileInputStream(aux[i]);
+			fin.read(keyCiph);
+			fin.close();
+			outStream.writeObject(sizerino);
+			DataOutputStream dos = new DataOutputStream(outStream);
+			//envia a key
+			dos.write(keyCiph, 0, sizerino);
+			
+			//vai buscar o sig
+			i = aux.length-1;
+			signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+			while(!signame.contains(name + ".sig")){
+				i--;
+				if (i<0)
+					break;
+				signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+			}
+			byte [] sig = new byte [(int) aux[i].length()];
+			fin = new FileInputStream(aux[i]);
+			fin.read(sig);
+			fin.close();
+			//envia o sig
+			outStream.writeObject(sig);
+			
+
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -603,29 +647,76 @@ public class PersistentFiles {
 		try {
 			File myDir;
 			if (user)
-				myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + contact + "//" + username);
+				myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + contact);
 			else
 				myDir = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + contact);
 			int nFiles = myDir.list().length;
 			outStream.writeObject(nFiles);
 			String [] fileName;
-			String nameAux;
+			String name,keyname,signame;
 			String [] finalF;
 			File[] aux = sortFiles(myDir);
+			int i;
 
 			for (File f : aux){
-				nameAux = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1));
-				if (!nameAux.startsWith(".")){
-					finalF = new String [4];
-					fileName = nameAux.split("_");
+				name = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
+				if (!name.startsWith(".") && !name.contains(".sig") && !name.contains(".key")){
+
+					finalF = new String [5];
+					fileName = name.split("_");
 					//se o ficheiro for message
 					if (fileName.length == 4){
 						finalF [0] = fileName[0];
 						finalF [1] = fileName[1];
 						finalF [2] = (fileName[2] + "_" + fileName[3]);
-						finalF [3] = readFile(f);
+						finalF [4] = "-m";
+						//vai buscar mensagem
+						FileInputStream fin = new FileInputStream(f);
+						byte [] fileContent = new byte[(int)f.length()];
+						fin.read(fileContent);
+						fin.close();
+
 						outStream.writeObject(finalF);
 						outStream.flush();
+						outStream.writeObject(fileContent);
+						outStream.flush();
+
+						//vai buscar a key
+						i = aux.length-1;
+						keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+						while(!keyname.contains(name + ".key." + username)){
+							i--;
+							if (i<0)
+								break;
+							keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+						}
+						int sizerino = (int) aux[i].length();
+						byte [] keyCiph = new byte [sizerino];
+						fin = new FileInputStream(aux[i]);
+						fin.read(keyCiph);
+						fin.close();
+						outStream.writeObject(sizerino);
+						DataOutputStream dos = new DataOutputStream(outStream);
+						//envia a key
+						dos.write(keyCiph, 0, sizerino);
+
+						//vai buscar o sig
+						i = aux.length-1;
+						String nameAux = name.split("\\.")[0];
+						signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+						while(!signame.contains(nameAux + ".sig")){
+							i--;
+							if (i<0)
+								break;
+							signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+						}
+						byte [] sig = new byte [(int) aux[i].length()];
+						fin = new FileInputStream(aux[i]);
+						fin.read(sig);
+						fin.close();
+						//envia o sig
+						outStream.writeObject(sig);
+
 					}
 					//se o ficheiro for file
 					else if (fileName.length == 5){
@@ -633,6 +724,7 @@ public class PersistentFiles {
 						finalF [1] = fileName[1];
 						finalF [2] = (fileName[2] + "_" + fileName[3]);
 						finalF [3] = fileName[4];
+						finalF [4] = "-f";
 						outStream.writeObject(finalF);
 						outStream.flush();
 					}
@@ -684,7 +776,6 @@ public class PersistentFiles {
 	 */
 	public void getLatestConvs(String username, ObjectOutputStream outStream) {
 		File myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//");
-		File [] lif;
 		String name, keyname, signame;
 		String [] finalF,fileName;
 		File[] aux;
@@ -697,7 +788,7 @@ public class PersistentFiles {
 
 			for (File f : myDir.listFiles()){
 				//em caso de files gerados pelo sistema
-				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1).startsWith(".")) {
+				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1).startsWith(".")) {
 
 					aux = sortFiles(f);
 					i = aux.length-1;
@@ -706,10 +797,12 @@ public class PersistentFiles {
 						outStream.flush();
 					}
 					else{
-						name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-						while((name.startsWith(".") || name.contains(".sig") || name.contains(".key")) && (i >= 0)){
+						name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+						while(name.startsWith(".") || name.contains(".sig") || name.contains(".key")){
 							i--;
-							name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+							if (i<0)
+								break;
+							name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
 						}
 						if (!name.startsWith(".")){
 							finalF = new String [5];
@@ -734,10 +827,12 @@ public class PersistentFiles {
 
 								//vai buscar a key
 								i = aux.length-1;
-								keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-								while(!keyname.contains(name + ".key." + username) && (i >= 0)){
+								keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+								while(!keyname.contains(name + ".key." + username)){
 									i--;
-									keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+									if (i<0)
+										break;
+									keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
 								}
 								int sizerino = (int) aux[i].length();
 								byte [] keyCiph = new byte [sizerino];
@@ -748,14 +843,16 @@ public class PersistentFiles {
 								DataOutputStream dos = new DataOutputStream(outStream);
 								//envia a key
 								dos.write(keyCiph, 0, sizerino);
-								
+
 								//vai buscar o sig
 								i = aux.length-1;
 								String nameAux = name.split("\\.")[0];
-								signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-								while(!signame.contains(nameAux + ".sig") && (i >= 0)){
+								signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+								while(!signame.contains(nameAux + ".sig")){
 									i--;
-									signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+									if (i<0)
+										break;
+									signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
 								}
 								byte [] sig = new byte [(int) aux[i].length()];
 								fin = new FileInputStream(aux[i]);
@@ -796,23 +893,25 @@ public class PersistentFiles {
 			outStream.flush();
 			for (File f : myDir.listFiles()){
 				//em caso de files gerados pelo sistema
-				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1).startsWith(".")) {
+				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1).startsWith(".")) {
 					aux = sortFiles(f);
 					i = aux.length-1;
 					if (aux.length == 0){
 						outStream.writeObject(null);
 						outStream.flush();
 					}
-					else if (!hasUserInGroup(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1), username)){
+					else if (!hasUserInGroup(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1), username)){
 						outStream.writeObject(null);
 						outStream.flush();
 					}
 					else{
-						name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-						while((name.startsWith(".") || name.equals(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1) + ".txt")
-								|| name.contains(".sig") || name.contains(".key")) && (i >= 0)){
+						name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+						while(name.startsWith(".") || name.equals(f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1) + ".txt")
+								|| name.contains(".sig") || name.contains(".key")){
 							i--;
-							name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+							if (i<0)
+								break;
+							name = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
 						}
 						if (!name.startsWith(".")){
 							finalF = new String [5];
@@ -828,20 +927,22 @@ public class PersistentFiles {
 								byte [] fileContent = new byte[(int)aux[i].length()];
 								fin.read(fileContent);
 								fin.close();
-								
+
 								//envia a mensagem cifrada
 								outStream.writeObject(finalF);
 								outStream.flush();
 								outStream.writeObject(fileContent);
 								outStream.flush();
-								
+
 
 								//vai buscar a key
 								i = aux.length-1;
-								keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-								while(!keyname.contains(name + ".key." + username) && (i >= 0)){
+								keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+								while(!keyname.contains(name + ".key." + username)){
 									i--;
-									keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+									if (i<0)
+										break;
+									keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
 								}
 								int sizerino = (int) aux[i].length();
 								byte [] keyCiph = new byte [sizerino];
@@ -852,22 +953,24 @@ public class PersistentFiles {
 								DataOutputStream dos = new DataOutputStream(outStream);
 								//envia a key
 								dos.write(keyCiph, 0, sizerino);
-								
+
 								//vai buscar o sig
 								i = aux.length-1;
 								String nameAux = name.split("\\.")[0];
-								signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
-								while(!signame.contains(nameAux + ".sig") && (i >= 0)){
+								signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+								while(!signame.contains(nameAux + ".sig")){
 									i--;
-									signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf("/")+1));
+									if (i<0)
+										break;
+									signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
 								}
-								byte [] sig2 = new byte [(int) aux[i].length()];
+								byte [] sig = new byte [(int) aux[i].length()];
 								fin = new FileInputStream(aux[i]);
-								fin.read(sig2);
+								fin.read(sig);
 								fin.close();
 								//envia o sig
-								outStream.writeObject(sig2);
-								
+								outStream.writeObject(sig);
+
 							}
 							//se o ficheiro for file
 							else if (fileName.length == 5){
@@ -895,7 +998,7 @@ public class PersistentFiles {
 	private int numFiles(File myDir) {
 		int i = 0;
 		for (File f : myDir.listFiles()){
-			if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf("/")+1).startsWith("."))
+			if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1).startsWith("."))
 				i++;
 		}
 		return i;
@@ -936,8 +1039,6 @@ public class PersistentFiles {
 		File dir;
 		File message;
 		File messageTo;
-		BufferedWriter bw;
-		ObjectOutputStream oos;
 		try {
 			if (username.equals(contact)){
 				dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to); 
@@ -946,7 +1047,7 @@ public class PersistentFiles {
 				if (msg)
 					message = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
 				else
-					message = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
+					message = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".key." + contact);
 
 				message.createNewFile();
 				FileOutputStream fos = new FileOutputStream(message);
@@ -963,7 +1064,7 @@ public class PersistentFiles {
 				if (msg)
 					messageTo = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
 				else
-					messageTo = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".txt.key." + contact);
+					messageTo = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".key." + contact);
 
 				messageTo.createNewFile();
 				FileOutputStream fos = new FileOutputStream(messageTo);
