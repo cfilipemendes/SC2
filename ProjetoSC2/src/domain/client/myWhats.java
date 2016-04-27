@@ -1,6 +1,4 @@
 package domain.client;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -285,18 +283,22 @@ public class myWhats {
 				out.writeObject(1);
 
 				FileInputStream fisSig = new FileInputStream (myFile);
-				byte [] byteArraySig = new byte [(int)myFile.length()];
-				fisSig.read(byteArraySig);
+				byte [] byteArrayFile = new byte [(int)myFile.length()];
+				fisSig.read(byteArrayFile);
 				fisSig.close();
-				ciphAux = md.digest(byteArraySig);
+				ciphAux = md.digest(byteArrayFile);
 				out.writeObject(ciphAux);
 
+				CipherOutputStream cos = new CipherOutputStream(new FileOutputStream(argsFinal[2] + ".ciph"),cAES);
+				cos.write(byteArrayFile);
+				cos.flush();
+				cos.close();
+				
 				File fileAux = new File (argsFinal[2] + ".ciph");
-				cipherFile(myFile, fileAux, cAES);
-				int fileSize = (int) fileAux.length();
+				
+				int fileSize = (int)fileAux.length();
 				byte [] byteArray = new byte [fileSize];
 				FileInputStream fis = new FileInputStream (fileAux);
-				BufferedInputStream bis = new BufferedInputStream (fis);
 				int bytesRead;
 				int current = 0; 
 
@@ -306,14 +308,14 @@ public class myWhats {
 				int resto = fileSize%PACKET_SIZE;
 
 				for (int i = 0; i < nCiclo; i++){
-					bytesRead = bis.read(byteArray,current,PACKET_SIZE);
+					bytesRead = fis.read(byteArray,current,PACKET_SIZE);
 					out.write(byteArray,current,bytesRead);
 					out.flush();
 					if (bytesRead > 0)
 						current += bytesRead;
 				}
 				if (resto > 0){
-					bytesRead = bis.read(byteArray,current,resto);
+					bytesRead = fis.read(byteArray,current,resto);
 					out.write(byteArray,current,bytesRead);
 					out.flush();
 				}
@@ -326,10 +328,9 @@ public class myWhats {
 					out.writeObject(ciphAux);
 				}
 
-				bis.close();
 				fis.close();
 
-				fileAux.delete();
+				//fileAux.delete();
 			}
 
 			//recepcao de ficheiros
@@ -553,7 +554,6 @@ public class myWhats {
 			}
 			byte [] byteArray = new byte [fileSize];
 			FileOutputStream fileAux = new FileOutputStream(new File(".").getAbsolutePath() + "//" + fich + ".ciph");
-			BufferedOutputStream bosFrom = new BufferedOutputStream(fileAux);
 
 			int current = 0;
 			int bytesRead;
@@ -562,18 +562,17 @@ public class myWhats {
 
 			for (int i = 0; i < nCiclo; i++){
 				bytesRead = inStream.read(byteArray, current,PACKET_SIZE);
-				bosFrom.write(byteArray,current,bytesRead);
-				bosFrom.flush();
+				fileAux.write(byteArray,current,bytesRead);
+				fileAux.flush();
 				if (bytesRead > 0)
 					current += bytesRead;
 			}
 
 			if (resto > 0){
 				bytesRead = inStream.read(byteArray, current,resto);
-				bosFrom.write(byteArray,current,bytesRead);
-				bosFrom.flush();
+				fileAux.write(byteArray,current,bytesRead);
+				fileAux.flush();
 			}
-			bosFrom.close();
 			fileAux.close();
 			
 			//recebe a chave cifrada
@@ -591,7 +590,10 @@ public class myWhats {
 			File myFile = new File (new File(".").getAbsolutePath() + "//" + fich);
 			File fileAux1 = new File (new File(".").getAbsolutePath() + "//" + fich + ".ciph");
 			cAES.init(Cipher.DECRYPT_MODE, secKey);
-			cipherFile(fileAux1, myFile, cAES);
+			CipherOutputStream oos = new CipherOutputStream(new FileOutputStream(myFile),cAES);
+			oos.write(byteArray);
+			oos.flush();
+			oos.close();
 			
 			//depois de decifrado apaga o ficheiro cifrado do cliente
 			fileAux1.delete();
@@ -746,23 +748,6 @@ public class myWhats {
 			z.concat("0");
 		}
 		return z.concat(num);
-	}
-
-	private static void cipherFile(File myFile,File fileAux, Cipher cAES) throws IOException {
-		FileInputStream is = new FileInputStream(myFile);
-		CipherOutputStream os = new CipherOutputStream(new FileOutputStream(fileAux), cAES);
-
-		copy(is, os);
-	}
-
-
-
-	private static void copy(FileInputStream is, CipherOutputStream os) throws IOException {
-		int i;
-		byte[] b = new byte[1024];
-		while((i=is.read(b))!=-1) {
-			os.write(b, 0, i);
-		}
 	}
 }
 
