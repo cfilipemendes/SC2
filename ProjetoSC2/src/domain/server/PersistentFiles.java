@@ -19,7 +19,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Scanner;
-
 import javax.crypto.Mac;
 
 public class PersistentFiles {
@@ -28,6 +27,7 @@ public class PersistentFiles {
 	private static final int PACKET_SIZE = 1024;
 	private BufferedReader br;
 	private File users;
+	private String usersFile;
 	private String groupsDir;
 	private String usersDir;
 	private Date data;
@@ -43,12 +43,13 @@ public class PersistentFiles {
 	 * @throws IOException 
 	 */
 	public PersistentFiles(String usersFile, String groupsDir, String usersDir, Mac mac, Scanner sc) throws IOException {
+		this.usersFile = usersFile;
 		users = new File(usersFile + ".txt");
 		File userPwdMac = new File (usersFile + "MAC");
 		File aux;
 		FileInputStream fis;
 		FileOutputStream fos;
-		byte [] usersArray, macArrayAux, macArray;
+		byte [] usersArray, macArray;
 		sdf = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss");
 		this.groupsDir = groupsDir;
 		this.usersDir = usersDir;
@@ -56,7 +57,6 @@ public class PersistentFiles {
 		//se nao existir ficheiro de users e pwds
 		if(!users.exists()){
 			users.createNewFile();
-			userPwdMac.createNewFile();
 		}
 		//se existir ficheiro de users e pwds
 		else{
@@ -87,23 +87,6 @@ public class PersistentFiles {
 						System.out.println("Responda apenas com os caracteres 'y' ou 'n'.");
 				}
 			}
-			//se existir o ficheiro de users e pwds
-			else{
-				//le o mac array do ficheiro
-				macArray = new byte [(int)userPwdMac.length()];
-				fis = new FileInputStream (usersFile + "MAC");
-				fis.read(macArray);
-				fis.close();
-				//cria um mac array do ficheiro users e pwds
-				mac.update(usersArray);
-				macArrayAux = mac.doFinal();
-				if (Arrays.equals(macArray, macArrayAux))
-					System.out.println("MAC do ficheiro das passwords correcto!");
-				else{
-					System.err.println("Mac do ficheiro das passwords incorrecto!");
-					userPwdMac.delete();
-				}
-			}
 		}
 		File dir = new File(usersDir);
 		if (!dir.exists())
@@ -119,31 +102,14 @@ public class PersistentFiles {
 			String groupname;
 			for (File f : dir.listFiles()){
 				groupname = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
-				File groupMac = new File (new File(".").getAbsolutePath() + "//" + groupname + "//" + groupname + "MAC");
-				aux = new File (new File(".").getAbsolutePath() + "//" + groupname + "//" + groupname + ".txt");
+				File groupMac = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + "MAC");
+				aux = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
 				fis = new FileInputStream (aux);
 				usersArray = new byte [(int)aux.length()];
 				fis.read(usersArray);
 				fis.close();
-				//se existir mac no grupo
-				if(groupMac.exists()){
-					//le o mac array do ficheiro
-					macArray = new byte [(int)groupMac.length()];
-					fis = new FileInputStream (groupMac);
-					fis.read(macArray);
-					fis.close();
-					//cria um mac array do ficheiro 'groupname'
-					mac.update(usersArray);
-					macArrayAux = mac.doFinal();
-					if (Arrays.equals(macArray,macArrayAux))
-						System.out.println("MAC do grupo " + groupname + " esta correcto!");
-					else{
-						System.err.println("Mac do grupo " + groupname + " esta incorrecto!");
-						groupMac.delete();
-					}
-				}
 				//se nao existir mac no grupo
-				else{
+				if (!groupMac.exists()){
 					fos = new FileOutputStream (groupMac);
 					while(true){
 						System.out.println("Nao existe MAC a proteger o grupo" + groupname + ", gerar MAC? (y/n)");
@@ -205,13 +171,18 @@ public class PersistentFiles {
 			size = line.split(":").length;
 			sp = line.split(":");
 			if(sp[0].equals(username)){
-				br.close();
 				result = sp[2];
 				i=3;
 				while (i < size){
 					result = result.concat(":"+sp[i]);
 					i++;
 				}
+				line = br.readLine();
+				while ((line != null) && (!line.matches("^(\\w*|\\d*):\\d{6}:.*"))){
+					result = result.concat("\n"+line);
+					line = br.readLine();
+				}
+				br.close();
 				return result;
 			}
 		}
@@ -226,8 +197,9 @@ public class PersistentFiles {
 	 * @param username nome do utilizador
 	 * @param salt 
 	 * @param password password do utilizador
+	 * @param mac 
 	 */
-	public synchronized void addUser(String username, int salt, String password) {
+	public synchronized void addUser(String username, int salt, String password, Mac mac) {
 		try {
 			BufferedWriter bw = new BufferedWriter(new FileWriter(users,true));
 			bw.append(username + ":" + salt + ":" + password);
@@ -237,6 +209,19 @@ public class PersistentFiles {
 			File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username);
 			if (!dir.exists())
 				dir.mkdir();
+
+			byte [] macArray;
+			byte [] usersArray = new byte [(int)users.length()];
+			FileInputStream fis = new FileInputStream (users);
+			fis.read(usersArray);
+			fis.close();
+			mac.update(usersArray);
+			macArray = mac.doFinal();
+			FileOutputStream fos = new FileOutputStream (new File (usersFile + "MAC"));
+			fos.write(macArray);
+			fos.close();
+
+
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -339,19 +324,30 @@ public class PersistentFiles {
 	 * adiciona um utilizador ao grupo
 	 * @param groupname nome do grupo ao qual o utilizador vai ser adicionado
 	 * @param user nome do utilizador que vai ser adicionado
+	 * @param mac 
+	 * @param pwdMac 
+	 * @throws IOException 
 	 */
-	public synchronized void addUserToGroup (String groupname, String user){
+	public synchronized void addUserToGroup (String groupname, String user, Mac mac) throws IOException{
 		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
 		BufferedWriter bw;
-		try {
-			bw = new BufferedWriter(new FileWriter(group,true));
-			bw.append(user);
-			bw.newLine();
-			bw.flush();
-			bw.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+
+		bw = new BufferedWriter(new FileWriter(group,true));
+		bw.append(user);
+		bw.newLine();
+		bw.flush();
+		bw.close();
+
+		byte [] macArray;
+		byte [] groupArray = new byte [(int)group.length()];
+		FileInputStream fis = new FileInputStream (group);
+		fis.read(groupArray);
+		fis.close();
+		mac.update(groupArray);
+		macArray = mac.doFinal();
+		FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + "MAC");
+		fos.write(macArray);
+		fos.close();
 	}
 
 	/**
@@ -378,8 +374,9 @@ public class PersistentFiles {
 	 * entao remove tambem o grupo
 	 * @param groupname nome do grupo ao qual o utilizador vai ser removido
 	 * @param user nome do utilizador que vai ser removido
+	 * @param mac 
 	 */
-	public synchronized void rmFromGroup(String groupname, String user){
+	public synchronized void rmFromGroup(String groupname, String user, Mac mac){
 		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
 		if (creatorOfGroup (groupname).equals(user)){
 			File groupDir = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname);
@@ -410,6 +407,17 @@ public class PersistentFiles {
 				for(int i = 0; i<filesDoGrupo.length; i++)
 					if(filesDoGrupo[i].getName().contains(".key." + user))
 						filesDoGrupo[i].delete();
+				
+				byte [] macArray;
+				byte [] groupArray = new byte [(int)group.length()];
+				FileInputStream fis = new FileInputStream (group);
+				fis.read(groupArray);
+				fis.close();
+				mac.update(groupArray);
+				macArray = mac.doFinal();
+				FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + "MAC");
+				fos.write(macArray);
+				fos.close();
 
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();

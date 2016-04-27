@@ -289,8 +289,14 @@ public class myWhats {
 				ciphAux = md.digest(byteArrayFile);
 				out.writeObject(ciphAux);
 
+				FileInputStream fisFile = new FileInputStream (myFile);
 				CipherOutputStream cos = new CipherOutputStream(new FileOutputStream(argsFinal[2] + ".ciph"),cAES);
-				cos.write(byteArrayFile);
+				int k;
+				byte[] b = new byte[1024];
+				while((k=fisFile.read(b))!=-1) {
+					cos.write(b, 0, k);
+				}
+				fisFile.close();
 				cos.flush();
 				cos.close();
 				
@@ -330,7 +336,7 @@ public class myWhats {
 
 				fis.close();
 
-				//fileAux.delete();
+				fileAux.delete();
 			}
 
 			//recepcao de ficheiros
@@ -584,14 +590,18 @@ public class myWhats {
 			secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
 			
 			
-			
-			/////////////////Esta aqui o problema!!!!!!!!!!!!!!////////////////////////
 			//decifra o ficheiro
 			File myFile = new File (new File(".").getAbsolutePath() + "//" + fich);
 			File fileAux1 = new File (new File(".").getAbsolutePath() + "//" + fich + ".ciph");
 			cAES.init(Cipher.DECRYPT_MODE, secKey);
+			FileInputStream fis = new FileInputStream (fileAux1);
 			CipherOutputStream oos = new CipherOutputStream(new FileOutputStream(myFile),cAES);
-			oos.write(byteArray);
+			int i;
+			byte[] b = new byte[1024];
+			while((i=fis.read(b))!=-1) {
+				oos.write(b, 0, i);
+			}
+			fis.close();
 			oos.flush();
 			oos.close();
 			

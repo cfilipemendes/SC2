@@ -53,9 +53,11 @@ public class server_skell {
 	 * @param username nome do utilizador
 	 * @param salt 
 	 * @param password password do utilizador
+	 * @param mac 
+	 * @param pwdMac 
 	 */
-	public void createUser(String username, int salt, String password) {
-		files.addUser(username,salt,password);
+	public void createUser(String username, int salt, String password, Mac mac) {
+		files.addUser(username,salt,password,mac);
 	}
 
 	/**
@@ -281,32 +283,34 @@ public class server_skell {
 	 * @param user contacto a adicionar ao grupo
 	 * @param group nome do grupo
 	 * @param from utilizador que executa o pedido
+	 * @param mac 
+	 * @param pwdMac 
 	 * @return -5 caso o utilizador a adicionar seja o mesmo que executa o pedido
 	 * @return -6 se o contacto ja estiver no grupo
 	 * @return -8 se o utilizador nao for o criador do grupo
 	 * @throws IOException 
 	 */
-	public int doAoperation(String user, String group, String from) throws IOException {
+	public int doAoperation(String user, String group, String from, Mac mac) throws IOException {
 		int confirm = 1;
 		if (from.equals(user))
 			return -5;
 		String creator;
+		//se existir grupo
 		if((creator = files.hasGroup(group)) != null){
 			if(creator.equals(from)){
 				if (!files.hasUserInGroup(group,user)){
-					files.addUserToGroup(group,user);
+					files.addUserToGroup(group,user,mac);
 				}
 				else
 					confirm = -6;
-
 			}
 			else
 				confirm = -8;
-
 		}
+		//se nao existir grupo
 		else{
 			files.createGroup(group,from);
-			files.addUserToGroup(group,user);
+			files.addUserToGroup(group,user,mac);
 		}
 		return confirm;
 	}
@@ -315,18 +319,19 @@ public class server_skell {
 	 * remove um utilizador de um grupo
 	 * @param user contacto do utilizador
 	 * @param group nome do grupo
+	 * @param mac 
 	 * @return -7 caso o user nao esteja no grupo
 	 * @return -8 caso o utilizador nao seja dono do grupo e como tal nao pode remover~
 	 * @return -9 se o grupo nao existir
 	 * @throws IOException 
 	 */
-	public int doDoperation(String user, String group, String from) throws IOException {
+	public int doDoperation(String user, String group, String from, Mac mac) throws IOException {
 		String creator;
 		int confirm = 1;
 		if((creator = files.hasGroup(group)) != null){
 			if(creator.equals(from)){
 				if(files.hasUserInGroup(group,user)){
-					files.rmFromGroup(group,user);
+					files.rmFromGroup(group,user,mac);
 				}
 				else
 					confirm = -7;
