@@ -273,6 +273,7 @@ public class PersistentFiles {
 			groupDir.delete();
 		}
 		else{
+			File groupDir = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname);
 			File temp = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//temp.txt");
 			BufferedWriter bw;
 			String line;
@@ -290,6 +291,11 @@ public class PersistentFiles {
 				br.close();
 				if(group.delete())
 					temp.renameTo(group);
+				
+				File[] filesDoGrupo = groupDir.listFiles();
+				for(int i = 0; i<filesDoGrupo.length; i++)
+					if(filesDoGrupo[i].getName().contains(".key." + user))
+						filesDoGrupo[i].delete();
 
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
