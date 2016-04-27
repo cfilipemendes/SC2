@@ -3,6 +3,9 @@ package domain.server;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.Scanner;
+
+import javax.crypto.Mac;
 
 public class server_skell {
 
@@ -14,9 +17,12 @@ public class server_skell {
 	 * @param usersFile nome do ficheiro de users e pws
 	 * @param groupsDir nome da pasta de grupos
 	 * @param usersDir nome da pasta de utilizadores
+	 * @param mac 
+	 * @param sc 
+	 * @throws IOException 
 	 */
-	public server_skell (String usersFile, String groupsDir, String usersDir){
-		files = new PersistentFiles(usersFile,groupsDir,usersDir);
+	public server_skell (String usersFile, String groupsDir, String usersDir, Mac mac, Scanner sc) throws IOException{
+		files = new PersistentFiles(usersFile,groupsDir,usersDir, mac, sc);
 	}
 
 	/**

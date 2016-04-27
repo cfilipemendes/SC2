@@ -1,5 +1,6 @@
 package domain.server;
 
+import java.io.File;
 import java.io.FileInputStream;
 
 
@@ -15,10 +16,16 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.util.Scanner;
+
+import javax.crypto.Mac;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
@@ -34,28 +41,21 @@ public class myWhatsServer {
 	private final int PW_ERROR = -66;
 	private final int REG_ERROR = -68;
 	private server_skell skell;
-	private String pwdMac;
+	private static String pwdMac;
 	private final static String ksPwd = "littlestars"; 
 
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InvalidKeyException, NumberFormatException, NoSuchAlgorithmException, IOException {
 		myWhatsServer server = new myWhatsServer();
+		pwdMac = args[1];
 		server.startServer(Integer.parseInt(args[0]));
 	}
 
-	public void startServer (int port){
+	public void startServer (int port) throws NoSuchAlgorithmException, InvalidKeyException, IOException{
 		ServerSocket ss = null;
 
 		System.setProperty("javax.net.ssl.keyStore", "myServer.keyStore");
 		System.setProperty("javax.net.ssl.keyStorePassword", ksPwd);
-
-		/*//Fazer isto!!!!!!
-		System.out.println("Qual a password para o MAC?");
-
-		Scanner sc = new Scanner (System.in);
-		pwdMac = sc.nextLine();
-		sc.close();
-		 */
 
 
 		try {
@@ -66,8 +66,22 @@ public class myWhatsServer {
 			System.exit(-1);
 		}
 
+		//inicializa o MAC
+		byte [] pwdMacByte = pwdMac.getBytes();
+		SecretKey keyMac = new SecretKeySpec(pwdMacByte, "HmacSHA256");
+		Mac mac;
+		mac = Mac.getInstance("HmacSHA256");
+		mac.init(keyMac);
+
+		//inicializa o scanner
+		Scanner sc = new Scanner (System.in);
+
 		//cria um skell do servidor
-		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR);
+		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR, mac, sc);
+
+		//verifica se existem todos os MACs
+		if (!verifyMacs())
+			return;
 
 		while(true) {
 			try {
@@ -79,9 +93,7 @@ public class myWhatsServer {
 				e.printStackTrace();
 			}
 		}
-		//sSoc.close();
 	}
-
 
 	//Threads utilizadas para comunicao com os clientes
 	class ServerThread extends Thread {
@@ -103,19 +115,6 @@ public class myWhatsServer {
 				int numArgs, confirm;
 				String username,password;
 				try {
-
-					/*
-					byte [] pwdMacByte = pwdMac.getBytes();
-					SecretKey keyMac = new SecretKeySpec(pwdMacByte, "HmacSHA256");
-
-					Mac m;
-					byte[]mac=null;
-					m = Mac.getInstance("HmacSHA256");
-					m.init(keyMac);
-					m.update();
-					mac = m.doFinal();
-					 */
-
 
 					username = (String) inStream.readObject();
 
@@ -366,4 +365,20 @@ public class myWhatsServer {
 
 		}
 	}
+
+	private boolean verifyMacs() {
+		File userPwdMac = new File (USERS_PWS_FILE + "MAC");
+		if (!userPwdMac.exists())
+			return false;
+		File groupDir = new File (GROUPS_DIR);
+		String groupname;
+		for (File f : groupDir.listFiles()){
+			groupname = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
+			File groupMac = new File (new File(".").getAbsolutePath() + "//" + groupname + "//" + groupname + "MAC");
+			if (!groupMac.exists())
+				return false;
+		}
+		return true;
+	}
+
 }

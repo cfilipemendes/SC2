@@ -18,6 +18,9 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.Scanner;
+
+import javax.crypto.Mac;
 
 public class PersistentFiles {
 
@@ -35,24 +38,135 @@ public class PersistentFiles {
 	 * @param usersFile nome do ficheiro de texto dos users e das suas pws
 	 * @param groupsDir nome da directoria dos grupos
 	 * @param usersDir nome da directoria dos clientes
+	 * @param mac 
+	 * @param sc 
+	 * @throws IOException 
 	 */
-	public PersistentFiles(String usersFile, String groupsDir, String usersDir) {
+	public PersistentFiles(String usersFile, String groupsDir, String usersDir, Mac mac, Scanner sc) throws IOException {
 		users = new File(usersFile + ".txt");
+		File userPwdMac = new File (usersFile + "MAC");
+		File aux;
+		FileInputStream fis;
+		FileOutputStream fos;
+		byte [] usersArray, macArrayAux, macArray;
 		sdf = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss");
 		this.groupsDir = groupsDir;
 		this.usersDir = usersDir;
-		if(!users.exists())
-			try {
-				users.createNewFile();
-			} catch (IOException e) {
-				e.printStackTrace();
+
+		//se nao existir ficheiro de users e pwds
+		if(!users.exists()){
+			users.createNewFile();
+			userPwdMac.createNewFile();
+		}
+		//se existir ficheiro de users e pwds
+		else{
+			usersArray = new byte [(int)users.length()];
+			fis = new FileInputStream (users);
+			fis.read(usersArray);
+			fis.close();
+			//se nao existir mac do ficheiro de users e pwds 
+			if (!userPwdMac.exists()){
+				fos = new FileOutputStream (userPwdMac);
+				while(true){
+					System.out.println("Nao existe MAC a proteger o ficheiro das passwords, gerar MAC? (y/n)");
+					String ans = sc.nextLine();
+					if (ans.equals("y")){
+						mac.update(usersArray);
+						macArray = mac.doFinal();
+						fos.write(macArray);
+						fos.close();
+						sc.close();
+						break;
+					}
+					else if (ans.equals("n")){
+						System.err.println("O servidor vai ser encerrado!");
+						sc.close();
+						break;
+					}
+					else
+						System.out.println("Responda apenas com os caracteres 'y' ou 'n'.");
+				}
 			}
+			//se existir o ficheiro de users e pwds
+			else{
+				//le o mac array do ficheiro
+				macArray = new byte [(int)userPwdMac.length()];
+				fis = new FileInputStream (usersFile + "MAC");
+				fis.read(macArray);
+				fis.close();
+				//cria um mac array do ficheiro users e pwds
+				mac.update(usersArray);
+				macArrayAux = mac.doFinal();
+				if (Arrays.equals(macArray, macArrayAux))
+					System.out.println("MAC do ficheiro das passwords correcto!");
+				else{
+					System.err.println("Mac do ficheiro das passwords incorrecto!");
+					userPwdMac.delete();
+				}
+			}
+		}
 		File dir = new File(usersDir);
 		if (!dir.exists())
 			dir.mkdir();
 		dir = new File(groupsDir);
-		if (!dir.exists())
+
+		//se nao existir directoria de grupos
+		if (!dir.exists()){
 			dir.mkdir();
+		}
+		//se existir directoria de grupos
+		else {
+			String groupname;
+			for (File f : dir.listFiles()){
+				groupname = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
+				File groupMac = new File (new File(".").getAbsolutePath() + "//" + groupname + "//" + groupname + "MAC");
+				aux = new File (new File(".").getAbsolutePath() + "//" + groupname + "//" + groupname + ".txt");
+				fis = new FileInputStream (aux);
+				usersArray = new byte [(int)aux.length()];
+				fis.read(usersArray);
+				fis.close();
+				//se existir mac no grupo
+				if(groupMac.exists()){
+					//le o mac array do ficheiro
+					macArray = new byte [(int)groupMac.length()];
+					fis = new FileInputStream (groupMac);
+					fis.read(macArray);
+					fis.close();
+					//cria um mac array do ficheiro 'groupname'
+					mac.update(usersArray);
+					macArrayAux = mac.doFinal();
+					if (Arrays.equals(macArray,macArrayAux))
+						System.out.println("MAC do grupo " + groupname + " esta correcto!");
+					else{
+						System.err.println("Mac do grupo " + groupname + " esta incorrecto!");
+						groupMac.delete();
+					}
+				}
+				//se nao existir mac no grupo
+				else{
+					fos = new FileOutputStream (groupMac);
+					while(true){
+						System.out.println("Nao existe MAC a proteger o grupo" + groupname + ", gerar MAC? (y/n)");
+						String ans = sc.nextLine();
+						if (ans.equals("y")){
+							mac.update(usersArray);
+							macArray = mac.doFinal();
+							fos.write(macArray);
+							fos.close();
+							sc.close();
+							break;
+						}
+						else if (ans.equals("n")){
+							System.err.println("O servidor vai ser encerrado!");
+							sc.close();
+							break;
+						}
+						else
+							System.out.println("Responda apenas com os caracteres 'y' ou 'n'.");
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -291,7 +405,7 @@ public class PersistentFiles {
 				br.close();
 				if(group.delete())
 					temp.renameTo(group);
-				
+
 				File[] filesDoGrupo = groupDir.listFiles();
 				for(int i = 0; i<filesDoGrupo.length; i++)
 					if(filesDoGrupo[i].getName().contains(".key." + user))
@@ -616,7 +730,7 @@ public class PersistentFiles {
 			DataOutputStream dos = new DataOutputStream(outStream);
 			//envia a key
 			dos.write(keyCiph, 0, sizerino);
-			
+
 			//vai buscar o sig
 			i = aux.length-1;
 			signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
@@ -632,7 +746,7 @@ public class PersistentFiles {
 			fin.close();
 			//envia o sig
 			outStream.writeObject(sig);
-			
+
 
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -663,82 +777,96 @@ public class PersistentFiles {
 			String [] finalF;
 			File[] aux = sortFiles(myDir);
 			int i;
+			boolean checkKey;
 
 			for (File f : aux){
 				name = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
 				if (!name.startsWith(".") && !name.contains(".sig") && !name.contains(".key")){
 
-					finalF = new String [5];
-					fileName = name.split("_");
-					//se o ficheiro for message
-					if (fileName.length == 4){
-						finalF [0] = fileName[0];
-						finalF [1] = fileName[1];
-						finalF [2] = (fileName[2] + "_" + fileName[3]);
-						finalF [4] = "-m";
-						//vai buscar mensagem
-						FileInputStream fin = new FileInputStream(f);
-						byte [] fileContent = new byte[(int)f.length()];
-						fin.read(fileContent);
-						fin.close();
-
-						outStream.writeObject(finalF);
-						outStream.flush();
-						outStream.writeObject(fileContent);
-						outStream.flush();
-
-						//vai buscar a key
-						i = aux.length-1;
+					//vai buscar a key
+					i = aux.length-1;
+					checkKey = true;
+					keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+					while(!keyname.contains(name + ".key." + username)){
+						i--;
+						if (i<0){
+							checkKey = false;
+							break;
+						}
 						keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
-						while(!keyname.contains(name + ".key." + username)){
-							i--;
-							if (i<0)
-								break;
-							keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
-						}
-						int sizerino = (int) aux[i].length();
-						byte [] keyCiph = new byte [sizerino];
-						fin = new FileInputStream(aux[i]);
-						fin.read(keyCiph);
-						fin.close();
-						outStream.writeObject(sizerino);
-						DataOutputStream dos = new DataOutputStream(outStream);
-						//envia a key
-						dos.write(keyCiph, 0, sizerino);
+					}
+					if (checkKey){
 
-						//vai buscar o sig
-						i = aux.length-1;
-						String nameAux = name.split("\\.")[0];
-						signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
-						while(!signame.contains(nameAux + ".sig")){
-							i--;
-							if (i<0)
-								break;
+						finalF = new String [5];
+						fileName = name.split("_");
+						//se o ficheiro for message
+						if (fileName.length == 4){
+							finalF [0] = fileName[0];
+							finalF [1] = fileName[1];
+							finalF [2] = (fileName[2] + "_" + fileName[3]);
+							finalF [4] = "-m";
+							//vai buscar mensagem
+							FileInputStream fin = new FileInputStream(f);
+							byte [] fileContent = new byte[(int)f.length()];
+							fin.read(fileContent);
+							fin.close();
+
+							outStream.writeObject(finalF);
+							outStream.flush();
+							outStream.writeObject(fileContent);
+							outStream.flush();
+
+							//le a key
+							int sizerino = (int) aux[i].length();
+							byte [] keyCiph = new byte [sizerino];
+							fin = new FileInputStream(aux[i]);
+							fin.read(keyCiph);
+							fin.close();
+							outStream.writeObject(sizerino);
+							DataOutputStream dos = new DataOutputStream(outStream);
+							//envia a key
+							dos.write(keyCiph, 0, sizerino);
+
+							//vai buscar o sig
+							i = aux.length-1;
+							String nameAux = name.split("\\.")[0];
 							signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
-						}
-						byte [] sig = new byte [(int) aux[i].length()];
-						fin = new FileInputStream(aux[i]);
-						fin.read(sig);
-						fin.close();
-						//envia o sig
-						outStream.writeObject(sig);
+							while(!signame.contains(nameAux + ".sig")){
+								i--;
+								if (i<0)
+									break;
+								signame = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+							}
+							byte [] sig = new byte [(int) aux[i].length()];
+							fin = new FileInputStream(aux[i]);
+							fin.read(sig);
+							fin.close();
+							//envia o sig
+							outStream.writeObject(sig);
 
+						}
+						//se o ficheiro for file
+						else if (fileName.length == 5){
+							finalF [0] = fileName[0];
+							finalF [1] = fileName[1];
+							finalF [2] = (fileName[2] + "_" + fileName[3]);
+							finalF [3] = fileName[4];
+							finalF [4] = "-f";
+							outStream.writeObject(finalF);
+							outStream.flush();
+						}
+						else{
+							outStream.writeObject(null);
+							outStream.flush();
+						}
 					}
-					//se o ficheiro for file
-					else if (fileName.length == 5){
-						finalF [0] = fileName[0];
-						finalF [1] = fileName[1];
-						finalF [2] = (fileName[2] + "_" + fileName[3]);
-						finalF [3] = fileName[4];
-						finalF [4] = "-f";
-						outStream.writeObject(finalF);
-						outStream.flush();
-					}
+					//se nao existir key para o username
 					else{
 						outStream.writeObject(null);
 						outStream.flush();
 					}
 				}
+				//se nao existir ficheiro
 				else{
 					outStream.writeObject(null);
 					outStream.flush();
