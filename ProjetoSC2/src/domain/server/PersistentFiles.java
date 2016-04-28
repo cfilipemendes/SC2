@@ -102,8 +102,8 @@ public class PersistentFiles {
 			String groupname;
 			for (File f : dir.listFiles()){
 				groupname = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
-				File groupMac = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + "MAC");
-				aux = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+				File groupMac = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + "MAC");
+				aux = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
 				fis = new FileInputStream (aux);
 				usersArray = new byte [(int)aux.length()];
 				fis.read(usersArray);
@@ -206,7 +206,7 @@ public class PersistentFiles {
 			bw.newLine();
 			bw.flush();
 			bw.close();
-			File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username);
+			File dir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username);
 			if (!dir.exists())
 				dir.mkdir();
 
@@ -235,31 +235,31 @@ public class PersistentFiles {
 	 * @param from2 
 	 */
 	public synchronized void newMessage(String to, byte[] menssagemCifrada, byte[] sig, String from) {
-		File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to);
+		File dir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + from + File.separator + to);
 		FileOutputStream fos;
 		if (!dir.exists())
 			dir.mkdir();
 		try {
 			data = GregorianCalendar.getInstance().getTime();
-			fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt");
+			fos = new FileOutputStream (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + from + File.separator + to + File.separator + from + "_" + to + "_" + sdf.format(data) + ".txt");
 			fos.write(menssagemCifrada);
 			fos.flush();
 			fos.close();
 
-			fos = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".sig");
+			fos = new FileOutputStream(new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + from + File.separator + to + File.separator + from + "_" + to + "_" + sdf.format(data) + ".sig");
 			fos.write(sig);
 			fos.flush();
 			fos.close();
 
-			dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from);
+			dir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + to + File.separator + from);
 			if (!dir.exists())
 				dir.mkdir();
-			fos = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt");
+			fos = new FileOutputStream(new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + to + File.separator + from + File.separator + from + "_" + to + "_" + sdf.format(data) + ".txt");
 			fos.write(menssagemCifrada);
 			fos.flush();
 			fos.close();
 
-			fos = new FileOutputStream(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + from + "//" + from + "_" + to + "_" + sdf.format(data) + ".sig");
+			fos = new FileOutputStream(new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + to + File.separator + from + File.separator + from + "_" + to + "_" + sdf.format(data) + ".sig");
 			fos.write(sig);
 			fos.flush();
 			fos.close();
@@ -280,12 +280,12 @@ public class PersistentFiles {
 	public synchronized void newGroupMessage(String groupname, byte[] mensagemCifrada, byte[] sig, String from) {
 		try {
 			data = GregorianCalendar.getInstance().getTime();
-			FileOutputStream fos = new FileOutputStream(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + from + "_" + groupname + "_" + sdf.format(data) + ".txt");
+			FileOutputStream fos = new FileOutputStream(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + from + "_" + groupname + "_" + sdf.format(data) + ".txt");
 			fos.write(mensagemCifrada);
 			fos.flush();
 			fos.close();
 
-			fos = new FileOutputStream(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + from + "_" + groupname + "_" + sdf.format(data) + ".sig");
+			fos = new FileOutputStream(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + from + "_" + groupname + "_" + sdf.format(data) + ".sig");
 			fos.write(sig);
 			fos.flush();
 			fos.close();
@@ -300,10 +300,10 @@ public class PersistentFiles {
 	 * @param creator nome do creador do grupo
 	 */
 	public synchronized void createGroup (String groupname, String creator){
-		File dir = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname);
+		File dir = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname);
 		if (!dir.exists())
 			dir.mkdir();
-		File group = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+		File group = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
 
 
 		try {
@@ -329,7 +329,7 @@ public class PersistentFiles {
 	 * @throws IOException 
 	 */
 	public synchronized void addUserToGroup (String groupname, String user, Mac mac) throws IOException{
-		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+		File group = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
 		BufferedWriter bw;
 
 		bw = new BufferedWriter(new FileWriter(group,true));
@@ -345,22 +345,24 @@ public class PersistentFiles {
 		fis.close();
 		mac.update(groupArray);
 		macArray = mac.doFinal();
-		FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + "MAC");
+		FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + "MAC");
 		fos.write(macArray);
+		fos.flush();
 		fos.close();
 	}
 
 	/**
 	 * verifica qual eh o creador do grupo
 	 * @param groupname nome do grupo
-	 * @return o nome do creador do grupo ou null se nao existir creador
+	 * @return o nome do criador do grupo ou null se nao existir criador
 	 */
 	public String creatorOfGroup (String groupname){
-		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+		File group = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
 		String creator = null;
 		try {
 			br = new BufferedReader(new FileReader(group));
 			creator = br.readLine();
+			br.close();
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -377,15 +379,15 @@ public class PersistentFiles {
 	 * @param mac 
 	 */
 	public synchronized void rmFromGroup(String groupname, String user, Mac mac){
-		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+		File group = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
 		if (creatorOfGroup (groupname).equals(user)){
-			File groupDir = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname);
+			File groupDir = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname);
 			cleanDir(groupDir);
 			groupDir.delete();
 		}
 		else{
-			File groupDir = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname);
-			File temp = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//temp.txt");
+			File groupDir = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname);
+			File temp = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + "temp.txt");
 			BufferedWriter bw;
 			String line;
 			try {
@@ -398,6 +400,8 @@ public class PersistentFiles {
 						bw.flush();
 					}
 				}
+				
+				bw.flush();
 				bw.close();
 				br.close();
 				if(group.delete())
@@ -415,7 +419,7 @@ public class PersistentFiles {
 				fis.close();
 				mac.update(groupArray);
 				macArray = mac.doFinal();
-				FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + "MAC");
+				FileOutputStream fos = new FileOutputStream (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + "MAC");
 				fos.write(macArray);
 				fos.close();
 
@@ -444,7 +448,7 @@ public class PersistentFiles {
 	 * @return boolean true se o utilizador pertencer ao grupo
 	 */
 	public boolean hasUserInGroup(String groupname, String user){
-		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+		File group = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
 		String line = null;
 		try {
 			br = new BufferedReader(new FileReader(group));
@@ -467,7 +471,7 @@ public class PersistentFiles {
 
 	public String[] usersInGroup(String groupname){
 		String [] us = null;
-		File group = new File(new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+		File group = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
 		int i = 0;
 		try {
 			br = new BufferedReader(new FileReader(group));
@@ -492,7 +496,7 @@ public class PersistentFiles {
 	 * @throws IOException
 	 */
 	public String hasGroup (String groupname) throws IOException{
-		File group = new File (new File(".").getAbsolutePath()+ "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+		File group = new File (new File(".").getAbsolutePath()+ File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
 		String readLine = null;
 		if(group.exists()){
 			br = new BufferedReader(new FileReader(group));
@@ -515,11 +519,11 @@ public class PersistentFiles {
 	 */
 	public synchronized void saveFile(String contact, String fich, String username, int fileSize, byte[] sig, ObjectInputStream inStream) {
 		try {
-			File dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + contact + "//" + username);
+			File dir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + contact + File.separator + username);
 			if (!dir.exists())
 				dir.mkdir();
 
-			dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + contact);
+			dir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator + contact);
 			if (!dir.exists())
 				dir.mkdir();			
 
@@ -527,24 +531,24 @@ public class PersistentFiles {
 			byte [] byteArray = new byte [fileSize];
 			//Escreve o sig no From
 			FileOutputStream fosFrom = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + usersDir + "//"+ username + "//" + contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
+					File.separator + usersDir + File.separator+ username + File.separator + contact + File.separator + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
 			fosFrom.write(sig);
 			fosFrom.flush();
 			fosFrom.close();
 			//Cria o ficheiro no From
 			fosFrom = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + usersDir + "//"+ username + "//" + contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+					File.separator + usersDir + File.separator+ username + File.separator + contact + File.separator + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
 
 
 			//Escreve o sig no To
 			FileOutputStream fosTo = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + usersDir + "//" + contact + "//" + username + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
+					File.separator + usersDir + File.separator + contact + File.separator + username + File.separator + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
 			fosTo.write(sig);
 			fosTo.flush();
 			fosTo.close();
 			//cria o ficheiro no To
 			fosTo = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + usersDir + "//" + contact + "//" + username + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+					File.separator + usersDir + File.separator + contact + File.separator + username + File.separator + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
 
 			int current = 0;
 			int bytesRead;
@@ -593,12 +597,12 @@ public class PersistentFiles {
 			data = GregorianCalendar.getInstance().getTime();
 			byte [] byteArray = new byte [fileSize];
 			FileOutputStream fos = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + groupsDir + "//"+ contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
+					File.separator + groupsDir + File.separator+ contact + File.separator + username + "_" + contact + "_" + sdf.format(data) + "_" + fich + ".sig");
 			fos.write(sig);
 			fos.flush();
 			fos.close();
 			fos = new FileOutputStream(new File(".").getAbsolutePath() + 
-					"//" + groupsDir + "//"+ contact + "//" + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
+					File.separator + groupsDir + File.separator+ contact + File.separator + username + "_" + contact + "_" + sdf.format(data) + "_" + fich);
 
 			int current = 0;
 			int bytesRead;
@@ -636,7 +640,7 @@ public class PersistentFiles {
 	 * @return File se existir o ficheiro fich ou null se nao existir
 	 */
 	public File userHasFile (String from,String contact, String fich) {
-		File myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + contact + "//" + from);
+		File myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + contact + File.separator + from);
 		for (File f : myDir.listFiles())
 			if (f.toString().contains(fich))
 				return f;
@@ -650,7 +654,7 @@ public class PersistentFiles {
 	 * @return File ficheiro se existir no grupo ou null se nao existir
 	 */
 	public File groupHasFile (String group, String fich) {
-		File myDir = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + group);
+		File myDir = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + group);
 		String nameAux;
 		for (File f : myDir.listFiles()){
 			nameAux = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
@@ -677,11 +681,11 @@ public class PersistentFiles {
 		String keyname,name,signame;
 		if (user){
 			myFile = userHasFile(from,contact,fich);
-			myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + from + "//" + contact);
+			myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + from + File.separator + contact);
 		}
 		else{
 			myFile = groupHasFile(contact,fich);
-			myDir = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + contact);
+			myDir = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + contact);
 		}
 		File[] aux = sortFiles(myDir);
 		try {
@@ -775,9 +779,9 @@ public class PersistentFiles {
 		try {
 			File myDir;
 			if (user)
-				myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + contact);
+				myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator + contact);
 			else
-				myDir = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + contact);
+				myDir = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + contact);
 			int nFiles = myDir.list().length;
 			outStream.writeObject(nFiles);
 			String [] fileName;
@@ -917,7 +921,7 @@ public class PersistentFiles {
 	 * @param outStream stream pela qual vai acontecer a comunicacao cliente servidor
 	 */
 	public void getLatestConvs(String username, ObjectOutputStream outStream) {
-		File myDir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//");
+		File myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator);
 		String name, keyname, signame;
 		String [] finalF,fileName;
 		File[] aux;
@@ -1029,7 +1033,7 @@ public class PersistentFiles {
 
 
 
-			myDir = new File (new File(".").getAbsolutePath() + "//" + groupsDir);
+			myDir = new File (new File(".").getAbsolutePath() + File.separator + groupsDir);
 			i = myDir.listFiles().length;
 			outStream.writeObject(i);
 			outStream.flush();
@@ -1183,13 +1187,13 @@ public class PersistentFiles {
 		File messageTo;
 		try {
 			if (username.equals(contact)){
-				dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to); 
+				dir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator + to); 
 				if (!dir.exists())
 					dir.mkdir();
 				if (msg)
-					message = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
+					message = new File(new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator + to + File.separator + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
 				else
-					message = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + username + "//" + to + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".key." + contact);
+					message = new File(new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator + to + File.separator + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".key." + contact);
 
 				message.createNewFile();
 				FileOutputStream fos = new FileOutputStream(message);
@@ -1200,13 +1204,13 @@ public class PersistentFiles {
 			}
 
 			else{
-				dir = new File (new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username);
+				dir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + to + File.separator + username);
 				if (!dir.exists())
 					dir.mkdir();
 				if (msg)
-					messageTo = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
+					messageTo = new File(new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + to + File.separator + username + File.separator + username + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
 				else
-					messageTo = new File(new File(".").getAbsolutePath() + "//" + usersDir + "//" + to + "//" + username + "//" + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".key." + contact);
+					messageTo = new File(new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + to + File.separator + username + File.separator + username + "_" + to + "_" + sdf.format(data) + "_" + filename + ".key." + contact);
 
 				messageTo.createNewFile();
 				FileOutputStream fos = new FileOutputStream(messageTo);
@@ -1225,9 +1229,9 @@ public class PersistentFiles {
 		File message;
 		try {
 			if (msg)
-				message = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
+				message = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + to + File.separator + from + "_" + to + "_" + sdf.format(data) + ".txt.key." + contact);
 			else
-				message = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + to + "//" + from + "_" + to + "_" + sdf.format(data) + "_" + filename + ".key." + contact);
+				message = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + to + File.separator + from + "_" + to + "_" + sdf.format(data) + "_" + filename + ".key." + contact);
 
 			message.createNewFile();
 			FileOutputStream fos = new FileOutputStream(message);
