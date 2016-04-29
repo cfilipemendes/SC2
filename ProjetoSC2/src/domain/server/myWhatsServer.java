@@ -366,6 +366,12 @@ public class myWhatsServer {
 		}
 	}
 
+	/**
+	 * verifica se os MACs do servidor estao correctos, senao termina a execucao do servidor
+	 * @param mac MAC para cifrar os ficheiros de modo a podermos comparar
+	 * @return true se os MACs estiverem correctos
+	 * @throws IOException
+	 */
 	private boolean verifyMacs(Mac mac) throws IOException {
 		byte [] macArray, macArrayAux, usersArray;
 		FileInputStream fis;

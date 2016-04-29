@@ -17,8 +17,8 @@ public class server_skell {
 	 * @param usersFile nome do ficheiro de users e pws
 	 * @param groupsDir nome da pasta de grupos
 	 * @param usersDir nome da pasta de utilizadores
-	 * @param mac 
-	 * @param sc 
+	 * @param mac MAC para ser criado ou substituido o ficheiro que mantem a integridade das passwords e dos grupos
+	 * @param sc Scanner
 	 * @throws IOException 
 	 */
 	public server_skell (String usersFile, String groupsDir, String usersDir, Mac mac, Scanner sc) throws IOException{
@@ -29,7 +29,7 @@ public class server_skell {
 	 * Verifica o login de um utilizador
 	 * @param pwd password login do utilizador
 	 * @param username nome login do utilizador
-	 * @return verificacao do login do utilizador
+	 * @return true se login for bem sucedido
 	 * @throws IOException
 	 */
 	public boolean authenticate (String pwd, String username) throws IOException{
@@ -39,7 +39,7 @@ public class server_skell {
 	/**
 	 * verifica se existe o user criado
 	 * @param username nome do user a verificar
-	 * @return boolean true se o user existir
+	 * @return true se o user existir
 	 * @throws IOException
 	 */
 	public String isUser(String username) throws IOException {
@@ -48,22 +48,21 @@ public class server_skell {
 
 	/**
 	 * adiciona um user ao servidor
-	 * adiciona o seu username e a sua password ao ficheiro
+	 * adiciona o seu username, o salt e a sua password cifrada ao ficheiro
 	 * adiciona uma directoria com o seu nome na directoria dos users
 	 * @param username nome do utilizador
-	 * @param salt 
-	 * @param password password do utilizador
-	 * @param mac 
-	 * @param pwdMac 
+	 * @param salt numero de 6 digitos gerado aleatoriamente
+	 * @param password password do utilizador cifrada
+	 * @param mac MAC para ser criado ou substituido o ficheiro que mantem a integridade das passwords
 	 */
 	public void createUser(String username, int salt, String password, Mac mac) {
 		files.addUser(username,salt,password,mac);
 	}
 
 	/**
-	 * Verifica se existe um grupo no servidor
+	 * verifica se existe um grupo no servidor
 	 * @param groupname nome do grupo que se pertende verificar se existe
-	 * @return nome do creador do grupo ou null se nao existir grupo
+	 * @return nome do criador do grupo ou null se nao existir grupo
 	 * @throws IOException
 	 */
 	public String isGroup(String groupname) throws IOException{
@@ -81,7 +80,11 @@ public class server_skell {
 
 	}
 
-
+	/**
+	 * Verifica quais os utilizadores de um determinado grupo
+	 * @param groupname nome doo grupo
+	 * @return array de String com o nome de cada utilizador em cada posicao
+	 */
 	public String[] usersInGroup(String groupname){
 		return files.usersInGroup(groupname);
 	}
@@ -199,46 +202,50 @@ public class server_skell {
 			return false;
 		return true;
 	}
+	
 	/**
-	 * Envia uma mensagem para um contacto
-	 * @param contact contacto do destinatario
-	 * @param menssagemCifrada conteudo da mensagem
-	 * @param from emissor da mensagem
-	 * @param from 
+	 * cria uma nova mensagem e sig e adiciona ah directoria do remetente e do que enviou
+	 * @param to nome do remetente
+	 * @param menssagemCifrada conteudo da mensagem cifrada
+	 * @param sig byte array com o hash da mensagem
+	 * @param from nome de quem enviou
 	 */
 	public void doMoperation(String to, byte[] menssagemCifrada, byte[] sig, String from) {
 		files.newMessage(to, menssagemCifrada, sig, from);
 	}
+	
 	/**
-	 * Envia um mensagem para um grupo
-	 * @param groupname nome do grupo para enviar a mensagem
-	 * @param arguments texto da mensagem a enviar
-	 * @param from nome do emissor da mensagem
-	 * @param username 
-	 * @param groupUsers 
+	 * envia uma mensagem e o respectivo sig para um grupo criando la o ficheiro de texto com a conversa
+	 * @param groupname nome do grupo para o qual vai ser enviada a mensagem
+	 * @param mensagemCifrada conteudo da mensagem cifrada
+	 * @param sig array com o hash da mensagem
+	 * @param from nome de quem enviou a mensagem
 	 */
 	public void doMGroupOperation(String groupname, byte[] mensagemCifrada, byte[] sig, String from) {
 		files.newGroupMessage(groupname, mensagemCifrada, sig, from);
 	}
+	
 	/**
-	 * Envia um ficheiro para um contacto
-	 * @param contact contacto da pessoa para enviar o ficheiro
+	 * recebe um ficheiro do cliente e o respectivo sig e guarda na pasta do remetente e de quem o enviou
+	 * @param contact nome do remetente
 	 * @param fich nome do ficheiro
-	 * @param username nome do utilizador autenticado
-	 * @param sig 
+	 * @param username nome de quem envia o ficheiro
+	 * @param fileSize tamanho do ficheiro em bytes
+	 * @param inStream stream pela qual vai acontecer a comunicacao cliente servidor
+	 * @param sig array com o hash do ficheiro
 	 */
 	public void doFoperation(String contact, String fich, String username, int fileSize,byte[] sig, ObjectInputStream inStream) {
 		files.saveFile(contact,fich,username,fileSize,sig,inStream);
 	}
 
 	/**
-	 * Envia um ficheiro para um grupo
-	 * @param contact nome do grupo para enviar o ficheiro
-	 * @param fich nome do ficheiro a enviar
-	 * @param username nome do utilizador autenticado
-	 * @param fileSize tamanho do ficheio a enviar
-	 * @param sig 
-	 * @param inStream stream de dados do socket
+	 * guarda um ficheiro e o respectivo sig no grupo
+	 * @param contact nome do remetente
+	 * @param fich nome do ficheiro
+	 * @param username nome de quem enviou o ficheiro
+	 * @param fileSize tamanho do ficheiro em bytes
+	 * @param sig array com o hash da mensagem
+	 * @param inStream stream pela qual vai acontecer a comunicacao cliente servidor
 	 */
 	public void doFoperationGroup(String contact, String fich, String username, int fileSize,byte[] sig, ObjectInputStream inStream) {	
 		files.saveFileGroup(contact,fich,username,fileSize,sig,inStream);
@@ -283,8 +290,7 @@ public class server_skell {
 	 * @param user contacto a adicionar ao grupo
 	 * @param group nome do grupo
 	 * @param from utilizador que executa o pedido
-	 * @param mac 
-	 * @param pwdMac 
+	 * @param mac MAC para ser criado ou substituido o ficheiro que mantem a integridade das passwords
 	 * @return -5 caso o utilizador a adicionar seja o mesmo que executa o pedido
 	 * @return -6 se o contacto ja estiver no grupo
 	 * @return -8 se o utilizador nao for o criador do grupo
@@ -319,7 +325,7 @@ public class server_skell {
 	 * remove um utilizador de um grupo
 	 * @param user contacto do utilizador
 	 * @param group nome do grupo
-	 * @param mac 
+	 * @param mac MAC para ser criado ou substituido o ficheiro que mantem a integridade das passwords
 	 * @return -7 caso o user nao esteja no grupo
 	 * @return -8 caso o utilizador nao seja dono do grupo e como tal nao pode remover~
 	 * @return -9 se o grupo nao existir
@@ -344,10 +350,26 @@ public class server_skell {
 		return confirm;
 	}
 
+	/**
+	 * vai buscar o numero salt de um cliente especifica
+	 * @param username nome do cliente
+	 * @return numero salt
+	 * @throws IOException
+	 */
 	public int getSalt(String user) throws IOException {
 		return files.getSalt(user);
 	}
 
+	/**
+	 * guarda as keys nas respectivas directorias
+	 * @param to nome do cliente para quem foi enviado o ficheiro cifrado com a key
+	 * @param contact contacto do user que consegue fazer unwrap da key
+	 * @param user true se for user false se for grupo
+	 * @param readKey array de bytes com o conteudo da key cifrada
+	 * @param username nome do utilizador que enviou o ficheiro
+	 * @param msg true se for uma mensagem ou false se for um ficheiro
+	 * @param filename nome do ficheiro ou null se for uma mensagem
+	 */
 	public void saveKey(String to,String contact, boolean user, byte [] readKey, String username,boolean msg, String filename) {
 		if (user)
 			files.saveContactKey(to,contact,readKey,username,msg,filename);

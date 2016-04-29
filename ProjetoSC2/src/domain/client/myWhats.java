@@ -397,10 +397,12 @@ public class myWhats {
 	 * todos os seus contactos e grupos
 	 * @param in stream pela qual vai acontecer a comunicacao servidor cliente
 	 * @param userName nome do utilizador que esta a pedir as conversas
+	 * @param cUnwrap Cipher para fazer o unwrap da key simetrica que cifrou o ficheiro
 	 * @throws BadPaddingException 
 	 * @throws IllegalBlockSizeException 
 	 * @throws NoSuchAlgorithmException 
 	 * @throws InvalidKeyException 
+	 * @return int  1 em caso de sucesso, -14 e -13 em caso de erro
 	 */
 	private static int getLatestConvs(ObjectInputStream in, String userName, Cipher cUnwrap) throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException {
 		try {
@@ -413,6 +415,7 @@ public class myWhats {
 				//recebe a mensagem cifrada
 				receivedC = (String[]) in.readObject();
 
+				//se o servidor tiver enviado incorrectamente os dados
 				if (receivedC == null)
 					return -14;
 
@@ -450,6 +453,7 @@ public class myWhats {
 			String [] receivedU;
 			for(int i = 0; i < nGroups; i++){
 				receivedU = (String[]) in.readObject();
+				//se o servidor tiver enviado incorrectamente os dados
 				if (receivedU == null)
 					return -14;
 
@@ -474,6 +478,7 @@ public class myWhats {
 
 					//recebe a sig e verifica a sua integridade
 					sig = (byte []) in.readObject();
+					//se o sig recebido pelo servidor e o sig calculado pelo cliente for diferente
 					if (!MessageDigest.isEqual(sig, hash)){
 						return -13;
 					}
@@ -492,10 +497,12 @@ public class myWhats {
 	 * contacto
 	 * @param inStream stream pela qual vai acontecer a comunicacao servidor cliente
 	 * @param userName nome do utilizador
+	 * @param cUnwrap Cipher para fazer o unwrap da key simetrica que cifrou o ficheiro
 	 * @throws NoSuchAlgorithmException 
 	 * @throws InvalidKeyException 
 	 * @throws BadPaddingException 
 	 * @throws IllegalBlockSizeException 
+	 * @return int 1 em caso de sucesso ou -13 em caso de erro
 	 */
 	private static int getContactConv(ObjectInputStream inStream, String userName, Cipher cUnwrap) throws InvalidKeyException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException {
 		try {
@@ -549,12 +556,15 @@ public class myWhats {
 	 * recebe um ficheiro do servidor
 	 * @param fich nome do ficheiro a ser recebido do servidor
 	 * @param inStream stream pela qual vai acontecer a comunicacao servidor cliente
+	 * @param cUnwrap Cipher para fazer o unwrap da key simetrica que cifrou o ficheiro
+	 * @return int 1 em caso de sucesso, -13 e -15 em caso de erro
 	 */
 	private static int getFileFromServer(String fich, ObjectInputStream inStream, Cipher cUnwrap) {
 		try {
 			Key secKey;
 			byte [] hash,sig;
 			int fileSize = (int) inStream.readObject();
+			//
 			if (fileSize < 0){
 				return -15;
 			}
@@ -751,6 +761,11 @@ public class myWhats {
 		printR1(received,userName);
 	}
 
+	/**
+	 * adiciona zeros ao salt no caso de o numero gerado ter sido 6< algarismos
+	 * @param num String que representa o salt
+	 * @return String com os zeros adicionados
+	 */
 	private static String addZerosSalt (String num) {
 		String z = "0";
 		int numZeros = 6 - num.length();

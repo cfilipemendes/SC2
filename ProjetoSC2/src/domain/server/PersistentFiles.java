@@ -35,11 +35,12 @@ public class PersistentFiles {
 
 	/**
 	 * construtor de PersistentFiles
+	 * cria os ficheiros MAC
 	 * @param usersFile nome do ficheiro de texto dos users e das suas pws
 	 * @param groupsDir nome da directoria dos grupos
 	 * @param usersDir nome da directoria dos clientes
-	 * @param mac 
-	 * @param sc 
+	 * @param mac MAC para ser criado ou substituido o ficheiro que mantem a integridade das passwords e dos grupos
+	 * @param sc Scanner
 	 * @throws IOException 
 	 */
 	public PersistentFiles(String usersFile, String groupsDir, String usersDir, Mac mac, Scanner sc) throws IOException {
@@ -136,7 +137,7 @@ public class PersistentFiles {
 	}
 
 	/**
-	 * verifica se o user corresponde a sua pw
+	 * verifica se o user corresponde ah sua pw
 	 * @param pwd password a ser testatda
 	 * @param username nome do utilizador
 	 * @return boolean true se a password for correcta
@@ -158,7 +159,7 @@ public class PersistentFiles {
 	/**
 	 * verifica se existe o user criado
 	 * @param username nome do user a verificar
-	 * @return boolean true se o user existir
+	 * @return String a password do username ou null em caso do username nao existir
 	 * @throws IOException
 	 */
 	public String hasUser(String username) throws IOException {
@@ -192,12 +193,12 @@ public class PersistentFiles {
 
 	/**
 	 * adiciona um user ao servidor
-	 * adiciona o seu username e a sua password ao ficheiro
+	 * adiciona o seu username, o salt e a sua password cifrada ao ficheiro
 	 * adiciona uma directoria com o seu nome na directoria dos users
 	 * @param username nome do utilizador
-	 * @param salt 
-	 * @param password password do utilizador
-	 * @param mac 
+	 * @param salt numero de 6 digitos gerado aleatoriamente
+	 * @param password password do utilizador cifrada
+	 * @param mac MAC para ser criado ou substituido o ficheiro que mantem a integridade das passwords
 	 */
 	public synchronized void addUser(String username, int salt, String password, Mac mac) {
 		try {
@@ -228,11 +229,11 @@ public class PersistentFiles {
 	}
 
 	/**
-	 * cria uma nova mensagem e adiciona ah directoria do remetente e do que enviou
+	 * cria uma nova mensagem e sig e adiciona ah directoria do remetente e do que enviou
 	 * @param to nome do remetente
-	 * @param menssagemCifrada conteudo da mensagem
+	 * @param menssagemCifrada conteudo da mensagem cifrada
+	 * @param sig byte array com o hash da mensagem
 	 * @param from nome de quem enviou
-	 * @param from2 
 	 */
 	public synchronized void newMessage(String to, byte[] menssagemCifrada, byte[] sig, String from) {
 		File dir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + from + File.separator + to);
@@ -270,12 +271,11 @@ public class PersistentFiles {
 	}
 
 	/**
-	 * envia uma mensagem para um grupo criando la o ficheiro de texto com a conversa
+	 * envia uma mensagem e o respectivo sig para um grupo criando la o ficheiro de texto com a conversa
 	 * @param groupname nome do grupo para o qual vai ser enviada a mensagem
-	 * @param mensagemCifrada conteudo da mensagem
+	 * @param mensagemCifrada conteudo da mensagem cifrada
+	 * @param sig array com o hash da mensagem
 	 * @param from nome de quem enviou a mensagem
-	 * @param from2 
-	 * @param groupUsers 
 	 */
 	public synchronized void newGroupMessage(String groupname, byte[] mensagemCifrada, byte[] sig, String from) {
 		try {
@@ -324,8 +324,7 @@ public class PersistentFiles {
 	 * adiciona um utilizador ao grupo
 	 * @param groupname nome do grupo ao qual o utilizador vai ser adicionado
 	 * @param user nome do utilizador que vai ser adicionado
-	 * @param mac 
-	 * @param pwdMac 
+	 * @param mac MAC para ser criado ou substituido o ficheiro que mantem a integridade das passwords
 	 * @throws IOException 
 	 */
 	public synchronized void addUserToGroup (String groupname, String user, Mac mac) throws IOException{
@@ -376,7 +375,7 @@ public class PersistentFiles {
 	 * entao remove tambem o grupo
 	 * @param groupname nome do grupo ao qual o utilizador vai ser removido
 	 * @param user nome do utilizador que vai ser removido
-	 * @param mac 
+	 * @param mac MAC para ser criado ou substituido o ficheiro que mantem a integridade do grupo
 	 */
 	public synchronized void rmFromGroup(String groupname, String user, Mac mac){
 		File group = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
@@ -468,7 +467,11 @@ public class PersistentFiles {
 		return false;
 	}
 
-
+	/**
+	 * Verifica quais os utilizadores de um determinado grupo
+	 * @param groupname nome doo grupo
+	 * @return array de String com o nome de cada utilizador em cada posicao
+	 */
 	public String[] usersInGroup(String groupname){
 		String [] us = null;
 		File group = new File(new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + groupname + File.separator + groupname + ".txt");
@@ -509,13 +512,13 @@ public class PersistentFiles {
 	}
 
 	/**
-	 * recebe um ficheiro do cliente e guarda na pasta do remetente e de quem o enviou
+	 * recebe um ficheiro do cliente e o respectivo sig e guarda na pasta do remetente e de quem o enviou
 	 * @param contact nome do remetente
 	 * @param fich nome do ficheiro
 	 * @param username nome de quem envia o ficheiro
 	 * @param fileSize tamanho do ficheiro em bytes
-	 * @param sig 
 	 * @param inStream stream pela qual vai acontecer a comunicacao cliente servidor
+	 * @param sig array com o hash do ficheiro
 	 */
 	public synchronized void saveFile(String contact, String fich, String username, int fileSize, byte[] sig, ObjectInputStream inStream) {
 		try {
@@ -584,12 +587,12 @@ public class PersistentFiles {
 	}
 
 	/**
-	 * guarda um ficheiro no grupo
+	 * guarda um ficheiro e o respectivo sig no grupo
 	 * @param contact nome do remetente
 	 * @param fich nome do ficheiro
 	 * @param username nome de quem enviou o ficheiro
 	 * @param fileSize tamanho do ficheiro em bytes
-	 * @param sig 
+	 * @param sig array com o hash da mensagem
 	 * @param inStream stream pela qual vai acontecer a comunicacao cliente servidor
 	 */
 	public synchronized void saveFileGroup(String contact, String fich, String username, int fileSize, byte[] sig, ObjectInputStream inStream) {
@@ -913,8 +916,6 @@ public class PersistentFiles {
 		return sb.toString();
 	}
 
-
-
 	/**
 	 * envia para o cliente as ultimas mensagens que o user tem com os seu contactos e com os seus grupos
 	 * @param username nome do utilizador
@@ -1141,6 +1142,11 @@ public class PersistentFiles {
 		}
 	}
 
+	/**
+	 * calcula o numero de ficheiros de uma directoria
+	 * @param myDir nome da directoria
+	 * @return numero de ficheiros pertencentes ah directoria
+	 */
 	private int numFiles(File myDir) {
 		int i = 0;
 		for (File f : myDir.listFiles()){
@@ -1168,6 +1174,12 @@ public class PersistentFiles {
 		return aux;
 	}
 
+	/**
+	 * vai buscar o numero salt de um cliente especifica
+	 * @param username nome do cliente
+	 * @return numero salt
+	 * @throws IOException
+	 */
 	public int getSalt(String username) throws IOException {
 		br = new BufferedReader(new FileReader(users));
 		String line;
@@ -1181,6 +1193,15 @@ public class PersistentFiles {
 		return 0;
 	}
 
+	/**
+	 * guarda a key num determinado cliente
+	 * @param to nome do cliente para quem foi enviado o ficheiro cifrado com a key
+	 * @param contact contacto do user que consegue fazer unwrap da key
+	 * @param readKey array de bytes com o conteudo da key cifrada
+	 * @param username nome do utilizador que enviou o ficheiro
+	 * @param msg true se for uma mensagem ou false se for um ficheiro
+	 * @param filename nome do ficheiro ou null se for uma mensagem
+	 */
 	public void saveContactKey(String to, String contact, byte [] readKey, String username, boolean msg, String filename) {
 		File dir;
 		File message;
@@ -1225,6 +1246,15 @@ public class PersistentFiles {
 
 	}
 
+	/**
+	 * guarda as keys num grupo
+	 * @param to nome do grupo
+	 * @param contact nome do utilizador que consegue fazer unwrap da key
+	 * @param readKey array de byte com o conteudo da key
+	 * @param from nome do utilizador que enviou o ficheiro ou a mensagem
+	 * @param msg true se for uma mensagem ou false se for um ficheiro
+	 * @param filename nome do ficheiro ou null se for uma mensagem
+	 */
 	public void saveGroupKey(String to, String contact, byte[] readKey, String from, boolean msg, String filename) {
 		File message;
 		try {
@@ -1238,8 +1268,6 @@ public class PersistentFiles {
 			fos.write(readKey);
 			fos.flush();
 			fos.close();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
