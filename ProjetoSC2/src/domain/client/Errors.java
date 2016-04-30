@@ -47,6 +47,8 @@ public class Errors {
 			return "O servidor enviou incorrectamente os dados";
 		case -15:
 			return "Erro no tamanho do ficheiro a ser recebido do servidor";
+		case -16:
+			return "Não há registo de conversas para este contacto!";
 		case CHAR_ERROR:
 			return "O nome nao pode conter os seguintes caracteres: _,/,-,.";
 		case ARGS_ERROR:

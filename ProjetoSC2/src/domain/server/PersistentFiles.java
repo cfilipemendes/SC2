@@ -773,7 +773,15 @@ public class PersistentFiles {
 				myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator + contact);
 			else
 				myDir = new File (new File(".").getAbsolutePath() + File.separator + groupsDir + File.separator + contact);
-			int nFiles = myDir.list().length;
+			
+			String[] filesList = myDir.list();;
+			
+			if(filesList == null){
+				outStream.writeObject(-16);
+				return -16;
+			}
+			
+			int nFiles = filesList.length;
 			outStream.writeObject(nFiles);
 			String [] fileName;
 			String name,keyname,signame;
