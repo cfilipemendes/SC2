@@ -32,6 +32,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
+import javax.xml.bind.DatatypeConverter;
 
 public class myWhats {
 
@@ -156,7 +157,7 @@ public class myWhats {
 		md = MessageDigest.getInstance("SHA-256");
 		byte buf[] = pwdSalt.getBytes();
 		byte hash[] = md.digest(buf);
-		String pwdHash = new String (hash);
+		String pwdHash = DatatypeConverter.printBase64Binary(hash);
 		out.writeObject(pwdHash);
 
 		int fromServer = (int) in.readObject();
@@ -675,7 +676,7 @@ public class myWhats {
 		MessageDigest md = MessageDigest.getInstance("SHA-256");
 		byte buf[] = pwdSalt.getBytes();
 		byte hash[] = md.digest(buf);
-		return new String (hash);
+		return DatatypeConverter.printBase64Binary(hash);
 	}
 
 	/**

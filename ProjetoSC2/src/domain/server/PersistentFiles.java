@@ -164,27 +164,15 @@ public class PersistentFiles {
 	 */
 	public String hasUser(String username) throws IOException {
 		br = new BufferedReader(new FileReader(users));
-		String line, result;
-		int i;
-		int size;
+		String line; //result;
+		//int i;
+		//int size;
 		String [] sp;
 		while((line = br.readLine()) != null){
-			size = line.split(":").length;
+			//size = line.split(":").length;
 			sp = line.split(":");
 			if(sp[0].equals(username)){
-				result = sp[2];
-				i=3;
-				while (i < size){
-					result = result.concat(":"+sp[i]);
-					i++;
-				}
-				line = br.readLine();
-				while ((line != null) && (!line.matches("^(\\w*|\\d*):\\d{6}:.*"))){
-					result = result.concat("\n"+line);
-					line = br.readLine();
-				}
-				br.close();
-				return result;
+				return sp[2];
 			}
 		}
 		br.close();

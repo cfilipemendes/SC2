@@ -126,7 +126,7 @@ public class myWhatsServer {
 						salt = skell.getSalt(username);
 						outStream.writeObject(salt);
 						password = (String) inStream.readObject();
-
+						
 						int i = 2;
 						while(!pwAux.equals(password)){
 							if(i == 0){
