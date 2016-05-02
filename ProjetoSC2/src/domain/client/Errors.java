@@ -1,5 +1,12 @@
 package domain.client;
 
+/***************************************************************************
+ *  Trabalho realizado por:
+ *  Andre Vieira 44868
+ *	Cesar Mendes 44864
+ *	Gil Correia  44851
+ ***************************************************************************/
+
 public class Errors {
 	
 	private static final String flags = "-p-m-f-r-a-d";
@@ -48,7 +55,9 @@ public class Errors {
 		case -15:
 			return "Erro no tamanho do ficheiro a ser recebido do servidor";
 		case -16:
-			return "Não há registo de conversas para este contacto!";
+			return "Nao ha registo de conversas para este contacto!";
+		case -17:
+			return "O Servidor nao conseguiu garantir integridade.";
 		case CHAR_ERROR:
 			return "O nome nao pode conter os seguintes caracteres: _,/,-,.";
 		case ARGS_ERROR:

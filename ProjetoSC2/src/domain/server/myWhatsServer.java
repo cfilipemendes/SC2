@@ -2,14 +2,6 @@ package domain.server;
 
 import java.io.File;
 import java.io.FileInputStream;
-
-
-/***************************************************************************
- *  
- *
- *
- ***************************************************************************/
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -22,15 +14,20 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.Arrays;
 import java.util.Scanner;
-
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
-//Servidor do servico myWhatsServer
+/***************************************************************************
+ *  Trabalho realizado por:
+ *  Andre Vieira 44868
+ *	Cesar Mendes 44864
+ *	Gil Correia  44851
+ ***************************************************************************/
 
+//Servidor do servico myWhatsServer
 public class myWhatsServer {
 
 	private final String USERS_PWS_FILE = "usersAndPws";
@@ -79,10 +76,6 @@ public class myWhatsServer {
 		//cria um skell do servidor
 		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR, mac, sc);
 
-		//verifica se existem todos os MACs
-		if (!verifyMacs(mac))
-			return;
-
 		while(true) {
 			try {
 				Socket inSoc = ss.accept();
@@ -110,12 +103,22 @@ public class myWhatsServer {
 
 		public void run(){
 			try {
+				
+				//Falta um outStream
+				
 				outStream = new ObjectOutputStream(socket.getOutputStream());
 				inStream = new ObjectInputStream(socket.getInputStream());
 				int numArgs, confirm;
 				String username,password;
 				try {
-
+					//Se os MAC's nao estiverem correctos
+					if (!verifyMacs(mac)){
+						outStream.writeObject(-17);
+						closeThread();
+						return;
+					}
+					outStream.writeObject(1);
+					
 					username = (String) inStream.readObject();
 
 					String pwAux;

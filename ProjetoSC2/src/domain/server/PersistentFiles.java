@@ -21,6 +21,13 @@ import java.util.GregorianCalendar;
 import java.util.Scanner;
 import javax.crypto.Mac;
 
+/***************************************************************************
+ *  Trabalho realizado por:
+ *  Andre Vieira 44868
+ *	Cesar Mendes 44864
+ *	Gil Correia  44851
+ ***************************************************************************/
+
 public class PersistentFiles {
 
 

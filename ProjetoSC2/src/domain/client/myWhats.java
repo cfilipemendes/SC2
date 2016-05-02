@@ -22,7 +22,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.regex.Pattern;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
@@ -33,6 +32,13 @@ import javax.crypto.SecretKey;
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.xml.bind.DatatypeConverter;
+
+/***************************************************************************
+ *  Trabalho realizado por:
+ *  Andre Vieira 44868
+ *	Cesar Mendes 44864
+ *	Gil Correia  44851
+ ***************************************************************************/
 
 public class myWhats {
 
@@ -101,6 +107,13 @@ public class myWhats {
 		//Abertura das Streams
 		in = new ObjectInputStream(soc.getInputStream());
 		out = new ObjectOutputStream(soc.getOutputStream());
+		
+		int macCheck = (int)in.readObject();
+		if (macCheck != 1){
+			System.err.println(Errors.errorConfirm(macCheck));
+			closeCon();
+			return;
+		}
 
 		//Modelizacao do array de envio ao servidor!
 		String [] argsFinal;
