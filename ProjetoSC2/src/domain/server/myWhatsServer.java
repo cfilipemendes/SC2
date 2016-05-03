@@ -76,6 +76,12 @@ public class myWhatsServer {
 		//cria um skell do servidor
 		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR, mac, sc);
 
+		//Se os MAC's nao estiverem correctos
+				if (!verifyMacs(mac)){
+					sc.close();
+					return;
+				}
+		
 		while(true) {
 			try {
 				Socket inSoc = ss.accept();
