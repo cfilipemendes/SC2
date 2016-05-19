@@ -639,9 +639,13 @@ public class PersistentFiles {
 	 */
 	public File userHasFile (String from,String contact, String fich) {
 		File myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + contact + File.separator + from);
-		for (File f : myDir.listFiles())
-			if (f.toString().contains(fich))
-				return f;
+		String nameAux;
+		for (File f : myDir.listFiles()){
+			nameAux = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
+			if (!nameAux.startsWith(".") && (nameAux.split("_").length == 5))
+				if (nameAux.split("_")[4].equals(fich))
+					return f;
+		}
 		return null;
 	}
 

@@ -45,6 +45,10 @@ public class myWhatsServer {
 
 	public static void main(String[] args) throws InvalidKeyException, NumberFormatException, NoSuchAlgorithmException, IOException {
 		myWhatsServer server = new myWhatsServer();
+		if (args.length != 2){
+			System.err.println("O Servidor nao recebeu o PORT nem a MACPWD!");
+			return;
+		}
 		pwdMac = args[1];
 		server.startServer(Integer.parseInt(args[0]));
 	}
@@ -77,11 +81,11 @@ public class myWhatsServer {
 		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR, mac, sc);
 
 		//Se os MAC's nao estiverem correctos
-				if (!verifyMacs(mac)){
-					sc.close();
-					return;
-				}
-		
+		if (!verifyMacs(mac)){
+			sc.close();
+			return;
+		}
+
 		while(true) {
 			try {
 				Socket inSoc = ss.accept();
@@ -109,9 +113,9 @@ public class myWhatsServer {
 
 		public void run(){
 			try {
-				
+
 				//Falta um outStream
-				
+
 				outStream = new ObjectOutputStream(socket.getOutputStream());
 				inStream = new ObjectInputStream(socket.getInputStream());
 				int numArgs, confirm;
@@ -124,7 +128,7 @@ public class myWhatsServer {
 						return;
 					}
 					outStream.writeObject(1);
-					
+
 					username = (String) inStream.readObject();
 
 					String pwAux;
@@ -135,7 +139,7 @@ public class myWhatsServer {
 						salt = skell.getSalt(username);
 						outStream.writeObject(salt);
 						password = (String) inStream.readObject();
-						
+
 						int i = 2;
 						while(!pwAux.equals(password)){
 							if(i == 0){
