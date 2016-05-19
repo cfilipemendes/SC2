@@ -311,7 +311,7 @@ public class myWhatsServer {
 										confirm = skell.doR1operation(username,arguments[1],outStream,false);
 									else {
 										confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,false);
-										if (confirm == -10)
+										if (confirm == -10 || confirm == -11)
 											break;
 									}
 								}

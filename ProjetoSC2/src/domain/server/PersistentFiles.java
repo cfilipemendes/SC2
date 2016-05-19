@@ -677,10 +677,10 @@ public class PersistentFiles {
 	 * @return int 1 se for bem sucedido e -10 se nao existir ficheiro
 	 */
 	public int getFile(String from,String contact, String fich, ObjectOutputStream outStream,boolean user) {
-		File myFile,myDir;
+		File myFile,myDir,key;
 		FileInputStream fin;
-		int i;
-		String keyname,name,signame;
+		int i, sizerino;
+		String name,signame;
 		if (user){
 			myFile = userHasFile(from,contact,fich);
 			myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + from + File.separator + contact);
@@ -696,6 +696,14 @@ public class PersistentFiles {
 				return -10;			
 			}
 			name = (myFile.getAbsolutePath().substring(myFile.getAbsolutePath().lastIndexOf(File.separator)+1));
+			
+			//verifica se existe key do user
+			key = checkKey(aux,name,from);
+			if (!key.exists()){
+				outStream.writeObject(-11);
+				return -11;
+			}
+			
 			//envia o tamanho do ficheiro
 			int fileSize = (int) myFile.length();
 			outStream.writeObject(fileSize);
@@ -726,18 +734,9 @@ public class PersistentFiles {
 			bis.close();
 			fis.close();
 
-			//vai buscar a key
-			i = aux.length-1;
-			keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
-			while(!keyname.contains(name + ".key." + from)){
-				i--;
-				if (i<0)
-					break;
-				keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
-			}
-			int sizerino = (int) aux[i].length();
+			sizerino = (int) key.length();
 			byte [] keyCiph = new byte [sizerino];
-			fin = new FileInputStream(aux[i]);
+			fin = new FileInputStream(key);
 			fin.read(keyCiph);
 			fin.close();
 			outStream.writeObject(sizerino);
@@ -767,6 +766,19 @@ public class PersistentFiles {
 		}
 		return 1;
 
+	}
+
+	private File checkKey(File[] aux, String name, String from) {
+		//vai buscar a key
+		int i = aux.length-1;
+		String keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+		while(!keyname.contains(name + ".key." + from)){
+			i--;
+			if (i<0)
+				break;
+			keyname = (aux[i].getAbsolutePath().substring(aux[i].getAbsolutePath().lastIndexOf(File.separator)+1));
+		}
+		return aux[i];
 	}
 
 	/**
