@@ -1,6 +1,5 @@
 package domain.server;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -12,7 +11,6 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.util.Arrays;
 import java.util.Scanner;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
@@ -81,7 +79,7 @@ public class myWhatsServer {
 		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR, mac, sc);
 
 		//Se os MAC's nao estiverem correctos
-		if (!verifyMacs(mac)){
+		if (!skell.verifyPwdMacs(mac,USERS_PWS_FILE)){
 			sc.close();
 			return;
 		}
@@ -114,15 +112,13 @@ public class myWhatsServer {
 		public void run(){
 			try {
 
-				//Falta um outStream
-
 				outStream = new ObjectOutputStream(socket.getOutputStream());
 				inStream = new ObjectInputStream(socket.getInputStream());
 				int numArgs, confirm;
 				String username,password;
 				try {
 					//Se os MAC's nao estiverem correctos
-					if (!verifyMacs(mac)){
+					if (!skell.verifyPwdMacs(mac, USERS_PWS_FILE)){
 						outStream.writeObject(-17);
 						closeThread();
 						return;
@@ -214,6 +210,12 @@ public class myWhatsServer {
 								}
 								//se o contacto for um grupo envia um array com todos os seus elementos
 								else if(skell.isGroup(arguments[1]) != null){
+									//Se os MAC's nao estiverem correctos
+									if (!skell.verifyGroupMacs(mac,arguments[1],GROUPS_DIR)){
+										outStream.writeObject(-17);
+										closeThread();
+										return;
+									}
 									group = true;
 									outStream.writeObject(1);
 									groupUsers = skell.usersInGroup(arguments[1]);
@@ -235,9 +237,8 @@ public class myWhatsServer {
 								if(user) {
 									skell.doMoperation(arguments[1],mensagemCifrada,sig,username);
 								}
-								else if (group){
+								else if (group)
 									skell.doMGroupOperation(arguments[1],mensagemCifrada,sig,username);
-								}
 								else{
 									outStream.writeObject(-1);
 									closeThread();
@@ -281,8 +282,15 @@ public class myWhatsServer {
 							}
 							if (user)
 								skell.doFoperation(arguments[1],arguments[2],username,fileSize,sig,inStream);
-							else if (group)
+							else if (group){
+								//Se os MAC's nao estiverem correctos
+								if (!skell.verifyGroupMacs(mac,arguments[1],GROUPS_DIR)){
+									confirm = -17;
+									closeThread();
+									break;
+								}
 								skell.doFoperationGroup(arguments[1],arguments[2],username,fileSize,sig,inStream);
+							}
 							else{
 								confirm = -1;
 								break;
@@ -295,7 +303,7 @@ public class myWhatsServer {
 							break;
 						case "-r":
 							if (numArgs == 1){
-								skell.doR0operation(username,outStream);
+								skell.doR0operation(username,outStream,mac);
 							}
 							else if (skell.isUser(arguments[1]) != null) {
 								outStream.writeObject(1);
@@ -305,7 +313,13 @@ public class myWhatsServer {
 									confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,true);
 							}
 							else if (skell.isGroup(arguments[1]) != null) {
-								if (skell.hasUserInGroup(arguments[1], username)) {
+								//Se os MAC's nao estiverem correctos
+								if (!skell.verifyGroupMacs(mac,arguments[1],GROUPS_DIR)){
+									confirm = -17;
+									closeThread();
+									break;
+								}
+								else if (skell.hasUserInGroup(arguments[1], username)) {
 									outStream.writeObject(1);
 									if (numArgs == 2)
 										confirm = skell.doR1operation(username,arguments[1],outStream,false);
@@ -334,7 +348,7 @@ public class myWhatsServer {
 										confirm = CHAR_ERROR;
 									}
 									else
-										confirm = skell.doAoperation(arguments[1],arguments[2],username,mac);
+										confirm = skell.doAoperation(arguments[1],arguments[2],username,mac,GROUPS_DIR);
 								}
 								else
 									confirm = REG_ERROR;
@@ -343,7 +357,7 @@ public class myWhatsServer {
 								confirm = -1;
 							break;
 						case "-d":
-							confirm = skell.doDoperation(arguments[1],arguments[2],username,mac);
+							confirm = skell.doDoperation(arguments[1],arguments[2],username,mac, GROUPS_DIR);
 							break;
 						}
 					}
@@ -377,70 +391,6 @@ public class myWhatsServer {
 			}
 
 		}
-	}
-
-	/**
-	 * verifica se os MACs do servidor estao correctos, senao termina a execucao do servidor
-	 * @param mac MAC para cifrar os ficheiros de modo a podermos comparar
-	 * @return true se os MACs estiverem correctos
-	 * @throws IOException
-	 */
-	private boolean verifyMacs(Mac mac) throws IOException {
-		byte [] macArray, macArrayAux, usersArray;
-		FileInputStream fis;
-		File userPwdMac = new File (USERS_PWS_FILE + "MAC");
-		File userPwd = new File (USERS_PWS_FILE + ".txt");
-
-		if (userPwdMac.exists()){
-			//le o mac array do ficheiro
-			macArray = new byte [(int)userPwdMac.length()];
-			fis = new FileInputStream (userPwdMac);
-			fis.read(macArray);
-			fis.close();
-			//cria um mac array do ficheiro users e pwds
-			usersArray = new byte [(int)userPwd.length()];
-			fis = new FileInputStream (userPwd);
-			fis.read(usersArray);
-			fis.close();
-			mac.update(usersArray);
-			macArrayAux = mac.doFinal();
-			if (Arrays.equals(macArray, macArrayAux))
-				System.out.println("MAC do ficheiro das passwords correcto!");
-			else{
-				System.err.println("Mac do ficheiro das passwords incorrecto!");
-				return false;
-			}
-		}
-
-
-		File groupDir = new File (GROUPS_DIR);
-		String groupname;
-		for (File f : groupDir.listFiles()){
-			groupname = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
-			File groupMac = new File (new File(".").getAbsolutePath() + "//" + GROUPS_DIR + "//" + groupname + "//" + groupname + "MAC");
-			File group = new File (new File(".").getAbsolutePath() + "//" + GROUPS_DIR + "//" + groupname + "//" + groupname + ".txt");
-			fis = new FileInputStream (group);
-			//le o ficheiro 'groupname'
-			usersArray = new byte [(int)group.length()];
-			fis.read(usersArray);
-			fis.close();
-
-			//le o mac array do ficheiro
-			macArray = new byte [(int)groupMac.length()];
-			fis = new FileInputStream (groupMac);
-			fis.read(macArray);
-			fis.close();
-			//cria um mac array do ficheiro 'groupname'
-			mac.update(usersArray);
-			macArrayAux = mac.doFinal();
-			if (Arrays.equals(macArray,macArrayAux))
-				System.out.println("MAC do grupo " + groupname + " esta correcto!");
-			else{
-				System.err.println("Mac do grupo " + groupname + " esta incorrecto!");
-				return false;
-			}
-		}
-		return true;
 	}
 
 }

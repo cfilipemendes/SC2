@@ -74,11 +74,11 @@ public class PersistentFiles {
 			fis.close();
 			//se nao existir mac do ficheiro de users e pwds 
 			if (!userPwdMac.exists()){
-				fos = new FileOutputStream (userPwdMac);
 				while(true){
 					System.out.println("Nao existe MAC a proteger o ficheiro das passwords, gerar MAC? (y/n)");
 					String ans = sc.nextLine();
 					if (ans.equals("y")){
+						fos = new FileOutputStream (userPwdMac);
 						mac.update(usersArray);
 						macArray = mac.doFinal();
 						fos.write(macArray);
@@ -118,11 +118,11 @@ public class PersistentFiles {
 				fis.close();
 				//se nao existir mac no grupo
 				if (!groupMac.exists()){
-					fos = new FileOutputStream (groupMac);
 					while(true){
-						System.out.println("Nao existe MAC a proteger o grupo" + groupname + ", gerar MAC? (y/n)");
+						System.out.println("Nao existe MAC a proteger o grupo " + groupname + ", gerar MAC? (y/n)");
 						String ans = sc.nextLine();
 						if (ans.equals("y")){
+							fos = new FileOutputStream (groupMac);
 							mac.update(usersArray);
 							macArray = mac.doFinal();
 							fos.write(macArray);
@@ -940,7 +940,7 @@ public class PersistentFiles {
 	 * @param username nome do utilizador
 	 * @param outStream stream pela qual vai acontecer a comunicacao cliente servidor
 	 */
-	public void getLatestConvs(String username, ObjectOutputStream outStream) {
+	public void getLatestConvs(String username, ObjectOutputStream outStream, Mac mac) {
 		File myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator);
 		String name, keyname, signame;
 		String [] finalF,fileName;
@@ -1058,6 +1058,13 @@ public class PersistentFiles {
 			outStream.writeObject(i);
 			outStream.flush();
 			for (File f : myDir.listFiles()){
+				//Se os MAC's nao estiverem correctos
+				if (!verifyGroupMacs(mac,f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1),groupsDir)){
+					outStream.writeObject(-17);
+					outStream.flush();
+				}
+				else
+					outStream.writeObject(1);
 				//em caso de files gerados pelo sistema
 				if (!f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1).startsWith(".")) {
 					aux = sortFiles(f);
@@ -1291,6 +1298,99 @@ public class PersistentFiles {
 			e.printStackTrace();
 		}
 
+	}
+	
+	/**
+	 * verifica se os MACs do servidor estao correctos, senao termina a execucao do servidor
+	 * @param mac MAC para cifrar os ficheiros de modo a podermos comparar
+	 * @return true se os MACs estiverem correctos
+	 * @throws IOException
+	 */
+	public boolean verifyPwdMacs(Mac mac, String usersPwsFile) throws IOException {
+		byte [] macArray, macArrayAux, usersArray;
+		FileInputStream fis;
+		File userPwdMac = new File (usersPwsFile + "MAC");
+		File userPwd = new File (usersPwsFile + ".txt");
+
+		if (userPwdMac.exists()){
+			//le o mac array do ficheiro
+			macArray = new byte [(int)userPwdMac.length()];
+			fis = new FileInputStream (userPwdMac);
+			fis.read(macArray);
+			fis.close();
+			//cria um mac array do ficheiro users e pwds
+			usersArray = new byte [(int)userPwd.length()];
+			fis = new FileInputStream (userPwd);
+			fis.read(usersArray);
+			fis.close();
+			mac.update(usersArray);
+			macArrayAux = mac.doFinal();
+			if (Arrays.equals(macArray, macArrayAux))
+				System.out.println("MAC do ficheiro das passwords correcto!");
+			else{
+				System.err.println("Mac do ficheiro das passwords incorrecto!");
+				return false;
+			}
+		}
+		return true;
+	}
+
+	@SuppressWarnings("resource")
+	public boolean verifyGroupMacs(Mac mac, String groupname, String groupsDir) throws IOException {
+		byte [] macArray, macArrayAux, usersArray;
+		FileInputStream fis;
+		FileOutputStream fos;
+		Scanner sc = new Scanner (System.in);
+
+		File groupDir = new File (groupsDir);
+		for (File f : groupDir.listFiles()){
+			groupname = (f.getAbsolutePath().substring(f.getAbsolutePath().lastIndexOf(File.separator)+1));
+			File groupMac = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + "MAC");
+			File group = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
+			fis = new FileInputStream (group);
+			//le o ficheiro 'groupname'
+			usersArray = new byte [(int)group.length()];
+			fis.read(usersArray);
+			fis.close();
+			if (!groupMac.exists()){
+				while(true){
+					System.out.println("Nao existe MAC a proteger o grupo " + groupname + ", gerar MAC? (y/n)");
+					String ans = sc.nextLine();
+					if (ans.equals("y")){
+						fos = new FileOutputStream (groupMac);
+						mac.update(usersArray);
+						macArray = mac.doFinal();
+						fos.write(macArray);
+						fos.close();
+						sc.close();
+						return true;
+					}
+					else if (ans.equals("n")){
+						System.err.println("O servidor vai ser encerrado!");
+						sc.close();
+						return false;
+					}
+					else
+						System.out.println("Responda apenas com os caracteres 'y' ou 'n'.");
+				}
+			}
+			
+			//le o mac array do ficheiro
+			macArray = new byte [(int)groupMac.length()];
+			fis = new FileInputStream (groupMac);
+			fis.read(macArray);
+			fis.close();
+			//cria um mac array do ficheiro 'groupname'
+			mac.update(usersArray);
+			macArrayAux = mac.doFinal();
+			if (Arrays.equals(macArray,macArrayAux))
+				System.out.println("MAC do grupo " + groupname + " esta correcto!");
+			else{
+				System.err.println("Mac do grupo " + groupname + " esta incorrecto!");
+				return false;
+			}
+		}
+		return true;
 	}
 
 }

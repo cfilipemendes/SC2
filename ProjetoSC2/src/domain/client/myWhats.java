@@ -422,10 +422,15 @@ public class myWhats {
 		try {
 			Key secKey;
 			byte [] deciphMsg,sig, hash;
+			//integridade
+			int mac;
 			//numero de contactos que o utilizador tem
 			int nContacts = (int) in.readObject();
 			String [] receivedC;
 			for(int i = 0; i < nContacts; i++){
+				mac = (int) in.readObject();
+				if (mac != 1)
+					return mac;
 				//recebe a mensagem cifrada
 				receivedC = (String[]) in.readObject();
 

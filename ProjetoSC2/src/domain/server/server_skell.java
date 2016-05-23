@@ -263,8 +263,8 @@ public class server_skell {
 	 * @param username nome do utilizador autenticado
 	 * @param outStream stream de dados do socket 
 	 */
-	public void doR0operation(String username, ObjectOutputStream outStream) {
-		files.getLatestConvs(username,outStream);
+	public void doR0operation(String username, ObjectOutputStream outStream, Mac mac) {
+		files.getLatestConvs(username,outStream, mac);
 	}
 
 	/**
@@ -303,29 +303,32 @@ public class server_skell {
 	 * @return -8 se o utilizador nao for o criador do grupo
 	 * @throws IOException 
 	 */
-	public int doAoperation(String user, String group, String from, Mac mac) throws IOException {
-		int confirm = 1;
+	public int doAoperation(String user, String group, String from, Mac mac, String groupsDir) throws IOException {
 		if (from.equals(user))
 			return -5;
 		String creator;
 		//se existir grupo
 		if((creator = files.hasGroup(group)) != null){
+			//Se os MAC's nao estiverem correctos
+			if (!files.verifyGroupMacs(mac,group,groupsDir)){
+				return -17;
+			}
 			if(creator.equals(from)){
 				if (!files.hasUserInGroup(group,user)){
 					files.addUserToGroup(group,user,mac);
 				}
 				else
-					confirm = -6;
+					return -6;
 			}
 			else
-				confirm = -8;
+				return -8;
 		}
 		//se nao existir grupo
 		else{
 			files.createGroup(group,from);
 			files.addUserToGroup(group,user,mac);
 		}
-		return confirm;
+		return 1;
 	}
 
 	/**
@@ -338,23 +341,26 @@ public class server_skell {
 	 * @return -9 se o grupo nao existir
 	 * @throws IOException 
 	 */
-	public int doDoperation(String user, String group, String from, Mac mac) throws IOException {
+	public int doDoperation(String user, String group, String from, Mac mac, String groupsDir) throws IOException {
 		String creator;
-		int confirm = 1;
 		if((creator = files.hasGroup(group)) != null){
+			//Se os MAC's nao estiverem correctos
+			if (!files.verifyGroupMacs(mac,group,groupsDir)){
+				return -17;
+			}
 			if(creator.equals(from)){
 				if(files.hasUserInGroup(group,user)){
 					files.rmFromGroup(group,user,mac);
 				}
 				else
-					confirm = -7;
+					return -7;
 			}
 			else
-				confirm = -8;
+				return -8;
 		}
 		else
-			confirm = -9;
-		return confirm;
+			return -9;
+		return 1;
 	}
 
 	/**
@@ -385,4 +391,18 @@ public class server_skell {
 
 	}
 
+
+	/**
+	 * verifica se os MACs do servidor estao correctos, senao termina a execucao do servidor
+	 * @param mac MAC para cifrar os ficheiros de modo a podermos comparar
+	 * @return true se os MACs estiverem correctos
+	 * @throws IOException
+	 */
+	public boolean verifyPwdMacs(Mac mac, String usersPwsFile) throws IOException {
+		return files.verifyPwdMacs(mac, usersPwsFile);
+	}
+
+	public boolean verifyGroupMacs(Mac mac, String groupname, String groupsDir) throws IOException {
+		return files.verifyGroupMacs(mac, groupname, groupsDir);
+	}
 }
