@@ -107,7 +107,7 @@ public class myWhats {
 		//Abertura das Streams
 		in = new ObjectInputStream(soc.getInputStream());
 		out = new ObjectOutputStream(soc.getOutputStream());
-		
+
 		int macCheck = (int)in.readObject();
 		if (macCheck != 1){
 			System.err.println(Errors.errorConfirm(macCheck));
@@ -313,9 +313,9 @@ public class myWhats {
 				fisFile.close();
 				cos.flush();
 				cos.close();
-				
+
 				File fileAux = new File (argsFinal[2] + ".ciph");
-				
+
 				int fileSize = (int)fileAux.length();
 				byte [] byteArray = new byte [fileSize];
 				FileInputStream fis = new FileInputStream (fileAux);
@@ -422,88 +422,89 @@ public class myWhats {
 		try {
 			Key secKey;
 			byte [] deciphMsg,sig, hash;
-			//integridade
-			int mac;
+
 			//numero de contactos que o utilizador tem
 			int nContacts = (int) in.readObject();
 			String [] receivedC;
 			for(int i = 0; i < nContacts; i++){
-				mac = (int) in.readObject();
-				if (mac != 1)
-					return mac;
 				//recebe a mensagem cifrada
 				receivedC = (String[]) in.readObject();
 
 				//se o servidor tiver enviado incorrectamente os dados
-				if (receivedC == null)
-					return -14;
+				if (receivedC != null){
 
-				//Se for messagem
-				if (receivedC[4].equals("-m")){
-					byte [] messCifrada = (byte[]) in.readObject();
+					//Se for messagem
+					if (receivedC[4].equals("-m")){
+						byte [] messCifrada = (byte[]) in.readObject();
 
-					//recebe a chave cifrada
-					int sizerino = (int) in.readObject();
-					DataInputStream dis = new DataInputStream(in);
-					byte [] ciphAux2 = new byte [sizerino];
-					dis.readFully(ciphAux2);
+						//recebe a chave cifrada
+						int sizerino = (int) in.readObject();
+						DataInputStream dis = new DataInputStream(in);
+						byte [] ciphAux2 = new byte [sizerino];
+						dis.readFully(ciphAux2);
 
-					secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
+						secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
 
-					//decifra a mensagem
-					cAES.init(Cipher.DECRYPT_MODE, secKey);
-					deciphMsg = cAES.doFinal(messCifrada);
+						//decifra a mensagem
+						cAES.init(Cipher.DECRYPT_MODE, secKey);
+						deciphMsg = cAES.doFinal(messCifrada);
 
-					//cria o hash
-					hash = md.digest(deciphMsg);
+						//cria o hash
+						hash = md.digest(deciphMsg);
 
-					//recebe a sig e verifica a sua integridade
-					sig = (byte []) in.readObject();
-					if (!MessageDigest.isEqual(sig, hash)){
-						return -13;
+						//recebe a sig e verifica a sua integridade
+						sig = (byte []) in.readObject();
+						if (!MessageDigest.isEqual(sig, hash)){
+							return -13;
+						}
+						receivedC[3] = new String (deciphMsg);
 					}
-					receivedC[3] = new String (deciphMsg);
-				}
 
-				printR0 (receivedC,userName,false);
+					printR0 (receivedC,userName,false);
+				}
 			}
+			//integridade
+			int mac;
 			//numero de grupos que o utilizador pertence
 			int nGroups = (int) in.readObject();
 			String [] receivedU;
 			for(int i = 0; i < nGroups; i++){
+				mac = (int) in.readObject();
+				if (mac != 1)
+					return mac;
 				receivedU = (String[]) in.readObject();
 				//se o servidor tiver enviado incorrectamente os dados
-				if (receivedU == null)
-					return -14;
+				if (receivedU != null){
 
-				//Se for messagem
-				if (receivedU[4].equals("-m")){
-					byte [] messCifrada = (byte[]) in.readObject();
+					//Se for messagem
+					if (receivedU[4].equals("-m")){
+						byte [] messCifrada = (byte[]) in.readObject();
 
-					//recebe a chave cifrada
-					int sizerino = (int) in.readObject();
-					DataInputStream dis = new DataInputStream(in);
-					byte [] ciphAux2 = new byte [sizerino];
-					dis.readFully(ciphAux2);
+						//recebe a chave cifrada
+						int sizerino = (int) in.readObject();
+						DataInputStream dis = new DataInputStream(in);
+						byte [] ciphAux2 = new byte [sizerino];
+						dis.readFully(ciphAux2);
 
-					secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
+						secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
 
-					//decifra a mensagem
-					cAES.init(Cipher.DECRYPT_MODE, secKey);
-					deciphMsg = cAES.doFinal(messCifrada);
+						//decifra a mensagem
+						cAES.init(Cipher.DECRYPT_MODE, secKey);
+						deciphMsg = cAES.doFinal(messCifrada);
 
-					//cria o hash
-					hash = md.digest(deciphMsg);
+						//cria o hash
+						hash = md.digest(deciphMsg);
 
-					//recebe a sig e verifica a sua integridade
-					sig = (byte []) in.readObject();
-					//se o sig recebido pelo servidor e o sig calculado pelo cliente for diferente
-					if (!MessageDigest.isEqual(sig, hash)){
-						return -13;
+						//recebe a sig e verifica a sua integridade
+						sig = (byte []) in.readObject();
+						//se o sig recebido pelo servidor e o sig calculado pelo cliente for diferente
+						if (!MessageDigest.isEqual(sig, hash)){
+							return -13;
+						}
+						receivedU[3] = new String (deciphMsg);
 					}
-					receivedU[3] = new String (deciphMsg);
+					printR0 (receivedU,userName,true);
 				}
-				printR0 (receivedU,userName,true);
 			}
 		} catch (ClassNotFoundException | IOException e) {
 			e.printStackTrace();
@@ -532,7 +533,7 @@ public class myWhats {
 			for (int i = 0; i < nFile; i++){
 				received = (String[]) inStream.readObject();
 				if (received != null){
-					
+
 					//Se for messagem
 					if (received[4].equals("-m")){
 						byte [] messCifrada = (byte[]) in.readObject();
@@ -609,7 +610,7 @@ public class myWhats {
 				fileAux.flush();
 			}
 			fileAux.close();
-			
+
 			//recebe a chave cifrada
 			int sizerino = (int) in.readObject();
 			DataInputStream dis = new DataInputStream(in);
@@ -617,8 +618,8 @@ public class myWhats {
 			dis.readFully(ciphAux2);
 			//decifra a chave
 			secKey = cUnwrap.unwrap(ciphAux2, "AES", Cipher.SECRET_KEY);
-			
-			
+
+
 			//decifra o ficheiro
 			File myFile = new File (new File(".").getAbsolutePath() + "//" + fich);
 			File fileAux1 = new File (new File(".").getAbsolutePath() + "//" + fich + ".ciph");
@@ -633,25 +634,25 @@ public class myWhats {
 			fis.close();
 			oos.flush();
 			oos.close();
-			
+
 			//depois de decifrado apaga o ficheiro cifrado do cliente
 			fileAux1.delete();
-			
+
 			FileInputStream fisSig = new FileInputStream (myFile);
 			byte [] byteArraySig = new byte [(int)myFile.length()];
 			fisSig.read(byteArraySig);
 			fisSig.close();
-			
+
 			//cria o hash
 			hash = md.digest(byteArraySig);
-			
+
 			//recebe a sig e verifica a sua integridade
 			sig = (byte []) in.readObject();
 			if (!MessageDigest.isEqual(sig, hash)){
 				return -13;
 			}
 
-			
+
 		} catch (IOException | ClassNotFoundException | InvalidKeyException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
