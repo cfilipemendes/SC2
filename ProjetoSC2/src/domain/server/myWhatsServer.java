@@ -297,14 +297,14 @@ public class myWhatsServer {
 							break;
 						case "-r":
 							if (numArgs == 1){
-								skell.doR0operation(username,outStream,mac);
+								skell.doR0operation(username,outStream,mac,kstore);
 							}
 							else if (skell.isUser(arguments[1]) != null) {
 								outStream.writeObject(1);
 								if (numArgs == 2)
-									confirm = skell.doR1operation(username,arguments[1],outStream,true);
+									confirm = skell.doR1operation(username,arguments[1],outStream,true,kstore);
 								else
-									confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,true);
+									confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,true,kstore);
 							}
 							else if (skell.isGroup(arguments[1]) != null) {
 								//Se os MAC's nao estiverem correctos
@@ -316,9 +316,9 @@ public class myWhatsServer {
 								else if (skell.hasUserInGroup(arguments[1], username)) {
 									outStream.writeObject(1);
 									if (numArgs == 2)
-										confirm = skell.doR1operation(username,arguments[1],outStream,false);
+										confirm = skell.doR1operation(username,arguments[1],outStream,false,kstore);
 									else {
-										confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,false);
+										confirm = skell.doR2operation(username,arguments[1],arguments[2],outStream,false,kstore);
 										if (confirm == -10 || confirm == -11)
 											break;
 									}

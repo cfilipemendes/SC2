@@ -15,6 +15,7 @@ import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -141,7 +142,10 @@ public class myWhats {
 		SecretKey key = kg.generateKey();
 
 		//wrap da publicK na key
-		Cipher cWrap = Cipher.getInstance("RSA");	
+		Cipher cWrap = Cipher.getInstance("RSA");
+		
+		//Decifrar sig
+		Cipher cRSA = Cipher.getInstance("RSA");
 
 		cAES = Cipher.getInstance("AES");
 		cAES.init(Cipher.ENCRYPT_MODE, key);
@@ -205,7 +209,9 @@ public class myWhats {
 		kstore.load(kfile,pwd.toCharArray());
 		PrivateKey privateKey = (PrivateKey) kstore.getKey(userName,pwd.toCharArray());
 		Cipher cUnwrap = Cipher.getInstance("RSA");
+		Cipher cSig = Cipher.getInstance("RSA");
 		cUnwrap.init(Cipher.UNWRAP_MODE, privateKey);
+		cSig.init(Cipher.ENCRYPT_MODE, privateKey);
 
 
 		///////////////////////////////////////////////////////////////////
@@ -239,6 +245,7 @@ public class myWhats {
 				else if (i == 2 && argsFinal[0].equals("-m")){
 					//envia a sig
 					ciphAux = md.digest(argsFinal[2].getBytes());
+					ciphAux = cSig.doFinal(ciphAux);
 					out.writeObject(ciphAux);
 					//envia a mensagem cifrada
 					ciphAux = cAES.doFinal(argsFinal[2].getBytes());
@@ -301,6 +308,7 @@ public class myWhats {
 				fisSig.read(byteArrayFile);
 				fisSig.close();
 				ciphAux = md.digest(byteArrayFile);
+				ciphAux = cSig.doFinal(ciphAux);
 				out.writeObject(ciphAux);
 
 				FileInputStream fisFile = new FileInputStream (myFile);
@@ -362,7 +370,7 @@ public class myWhats {
 					if (check != 1){
 						return;
 					}
-					check = getFileFromServer(argsFinal[2],in,cUnwrap);
+					check = getFileFromServer(argsFinal[2],in,cUnwrap,cRSA);
 					if (check != 1){
 						System.err.println(Errors.errorConfirm(check));
 						closeCon();
@@ -376,7 +384,7 @@ public class myWhats {
 						System.err.println(Errors.errorConfirm(check));
 						return;
 					}
-					check = getContactConv(in, userName,cUnwrap);
+					check = getContactConv(in, userName,cUnwrap,cRSA);
 					if (check != 1){
 						System.err.println(Errors.errorConfirm(check));
 						closeCon();
@@ -385,7 +393,7 @@ public class myWhats {
 				}
 				// -r que recebe tudo
 				else if(argsFinal.length == 1){
-					check = getLatestConvs(in,userName,cUnwrap);
+					check = getLatestConvs(in,userName,cUnwrap,cRSA);
 					if (check != 1){
 						System.err.println(Errors.errorConfirm(check));
 						closeCon();
@@ -418,7 +426,7 @@ public class myWhats {
 	 * @throws InvalidKeyException 
 	 * @return int  1 em caso de sucesso, -14 e -13 em caso de erro
 	 */
-	private static int getLatestConvs(ObjectInputStream in, String userName, Cipher cUnwrap) throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException {
+	private static int getLatestConvs(ObjectInputStream in, String userName, Cipher cUnwrap, Cipher cRSA) throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException {
 		try {
 			Key secKey;
 			byte [] deciphMsg,sig, hash;
@@ -454,6 +462,9 @@ public class myWhats {
 
 						//recebe a sig e verifica a sua integridade
 						sig = (byte []) in.readObject();
+						PublicKey sec = (PublicKey) in.readObject();
+						cRSA.init(Cipher.DECRYPT_MODE, sec);
+						sig = cRSA.doFinal(sig);
 						if (!MessageDigest.isEqual(sig, hash)){
 							return -13;
 						}
@@ -497,6 +508,9 @@ public class myWhats {
 
 						//recebe a sig e verifica a sua integridade
 						sig = (byte []) in.readObject();
+						PublicKey sec = (PublicKey) in.readObject();
+						cRSA.init(Cipher.DECRYPT_MODE, sec);
+						sig = cRSA.doFinal(sig);
 						//se o sig recebido pelo servidor e o sig calculado pelo cliente for diferente
 						if (!MessageDigest.isEqual(sig, hash)){
 							return -13;
@@ -524,7 +538,7 @@ public class myWhats {
 	 * @throws IllegalBlockSizeException 
 	 * @return int 1 em caso de sucesso ou -13 em caso de erro
 	 */
-	private static int getContactConv(ObjectInputStream inStream, String userName, Cipher cUnwrap) throws InvalidKeyException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException {
+	private static int getContactConv(ObjectInputStream inStream, String userName, Cipher cUnwrap, Cipher cRSA) throws InvalidKeyException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException {
 		try {
 			Key secKey;
 			byte [] sig, deciphMsg, hash;
@@ -555,6 +569,9 @@ public class myWhats {
 
 						//recebe a sig e verifica a sua integridade
 						sig = (byte []) in.readObject();
+						PublicKey sec = (PublicKey) in.readObject();
+						cRSA.init(Cipher.DECRYPT_MODE, sec);
+						sig = cRSA.doFinal(sig);
 						if (!MessageDigest.isEqual(sig, hash)){
 							return -13;
 						}
@@ -578,8 +595,10 @@ public class myWhats {
 	 * @param inStream stream pela qual vai acontecer a comunicacao servidor cliente
 	 * @param cUnwrap Cipher para fazer o unwrap da key simetrica que cifrou o ficheiro
 	 * @return int 1 em caso de sucesso, -13 e -15 em caso de erro
+	 * @throws BadPaddingException 
+	 * @throws IllegalBlockSizeException 
 	 */
-	private static int getFileFromServer(String fich, ObjectInputStream inStream, Cipher cUnwrap) {
+	private static int getFileFromServer(String fich, ObjectInputStream inStream, Cipher cUnwrap, Cipher cRSA) throws IllegalBlockSizeException, BadPaddingException {
 		try {
 			Key secKey;
 			byte [] hash,sig;
@@ -648,6 +667,9 @@ public class myWhats {
 
 			//recebe a sig e verifica a sua integridade
 			sig = (byte []) in.readObject();
+			PublicKey sec = (PublicKey) in.readObject();
+			cRSA.init(Cipher.DECRYPT_MODE, sec);
+			sig = cRSA.doFinal(sig);
 			if (!MessageDigest.isEqual(sig, hash)){
 				return -13;
 			}

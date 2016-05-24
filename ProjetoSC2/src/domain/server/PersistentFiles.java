@@ -13,6 +13,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.PublicKey;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -85,6 +88,7 @@ public class PersistentFiles {
 						macArray = mac.doFinal();
 						fos.write(macArray);
 						fos.close();
+						System.out.println("Ficheiro MAC criado com SUCESSO!");
 						break;
 					}
 					else if (ans.equals("n")){
@@ -127,6 +131,7 @@ public class PersistentFiles {
 							macArray = mac.doFinal();
 							fos.write(macArray);
 							fos.close();
+							System.out.println("Ficheiro MAC criado com SUCESSO!");
 							break;
 						}
 						else if (ans.equals("n")){
@@ -673,12 +678,13 @@ public class PersistentFiles {
 	 * @param outStream stream pela qual vai acontecer a comunicacao servidor cliente
 	 * @param user se for user vai buscar ao folder de users senao vai ao folder de groups
 	 * @return int 1 se for bem sucedido e -10 se nao existir ficheiro
+	 * @throws KeyStoreException 
 	 */
-	public int getFile(String from,String contact, String fich, ObjectOutputStream outStream,boolean user) {
+	public int getFile(String from,String contact, String fich, ObjectOutputStream outStream,boolean user,KeyStore kstore) throws KeyStoreException {
 		File myFile,myDir,key;
 		FileInputStream fin;
 		int i, sizerino;
-		String name,signame;
+		String name,signame,keyFrom;
 		if (user){
 			myFile = userHasFile(from,contact,fich);
 			myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + from + File.separator + contact);
@@ -758,6 +764,10 @@ public class PersistentFiles {
 			//envia o sig
 			outStream.writeObject(sig);
 
+			//vai buscar a public key do cliente para enviar e decifrar o sig
+			keyFrom = name.split("_")[0];
+			PublicKey sec = (PublicKey) kstore.getCertificate(keyFrom).getPublicKey();
+			outStream.writeObject(sec);
 
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -786,8 +796,9 @@ public class PersistentFiles {
 	 * @param outStream stream pela qual vai acontecer a comunicacao cliente servidor
 	 * @param user se for user vai buscar a convera a directoria dos users senao vai buscar a directoria dos grupos
 	 * @return 1 se for tudo bem sucedido
+	 * @throws KeyStoreException 
 	 */
-	public int getContactConv(String username, String contact, ObjectOutputStream outStream, boolean user) {
+	public int getContactConv(String username, String contact, ObjectOutputStream outStream, boolean user, KeyStore kstore) throws KeyStoreException {
 		try {
 			File myDir;
 			if (user)
@@ -805,7 +816,7 @@ public class PersistentFiles {
 			int nFiles = filesList.length;
 			outStream.writeObject(nFiles);
 			String [] fileName;
-			String name,keyname,signame;
+			String name,keyname,signame,keyFrom;
 			String [] finalF;
 			File[] aux = sortFiles(myDir);
 			int i;
@@ -876,6 +887,11 @@ public class PersistentFiles {
 							//envia o sig
 							outStream.writeObject(sig);
 
+							//vai buscar a public key do cliente para enviar e decifrar o sig
+							keyFrom = fileName[0];
+							PublicKey sec = kstore.getCertificate(keyFrom).getPublicKey();
+							outStream.writeObject(sec);
+
 						}
 						//se o ficheiro for file
 						else if (fileName.length == 5){
@@ -937,10 +953,11 @@ public class PersistentFiles {
 	 * envia para o cliente as ultimas mensagens que o user tem com os seu contactos e com os seus grupos
 	 * @param username nome do utilizador
 	 * @param outStream stream pela qual vai acontecer a comunicacao cliente servidor
+	 * @throws KeyStoreException 
 	 */
-	public void getLatestConvs(String username, ObjectOutputStream outStream, Mac mac) {
+	public void getLatestConvs(String username, ObjectOutputStream outStream, Mac mac, KeyStore kstore) throws KeyStoreException {
 		File myDir = new File (new File(".").getAbsolutePath() + File.separator + usersDir + File.separator + username + File.separator);
-		String name, keyname, signame;
+		String name, keyname, signame,keyFrom;
 		String [] finalF,fileName;
 		File[] aux;
 		int i;
@@ -1024,6 +1041,11 @@ public class PersistentFiles {
 								fin.close();
 								//envia o sig
 								outStream.writeObject(sig);
+
+								//vai buscar a public key do cliente para enviar e decifrar o sig
+								keyFrom = finalF[0];
+								PublicKey sec = kstore.getCertificate(keyFrom).getPublicKey();
+								outStream.writeObject(sec);
 
 							}
 							//se o ficheiro for file
@@ -1143,6 +1165,11 @@ public class PersistentFiles {
 								fin.close();
 								//envia o sig
 								outStream.writeObject(sig);
+
+								//vai buscar a public key do cliente para enviar e decifrar o sig
+								keyFrom = finalF[0];
+								PublicKey sec = kstore.getCertificate(keyFrom).getPublicKey();
+								outStream.writeObject(sec);
 
 							}
 							//se o ficheiro for file
@@ -1308,11 +1335,41 @@ public class PersistentFiles {
 	 */
 	public boolean verifyPwdMacs(Mac mac, String usersPwsFile) throws IOException {
 		byte [] macArray, macArrayAux, usersArray;
+		String ans;
 		FileInputStream fis;
+		FileOutputStream fos;
 		File userPwdMac = new File (usersPwsFile + "MAC");
 		File userPwd = new File (usersPwsFile + ".txt");
+		File pwsMac = new File (new File(".").getAbsolutePath() + "//" + usersFile + "MAC");
+		File pws = new File (new File(".").getAbsolutePath() + "//" + usersFile + ".txt");
+		fis= new FileInputStream (pws); 
+		//le o ficheiro 'groupname'
+		usersArray = new byte [(int)pws.length()];
+		fis.read(usersArray);
+		fis.close();
 
-		if (userPwdMac.exists()){
+		if (!userPwdMac.exists()){
+			while(true){
+				System.out.println("Nao existe MAC a proteger o ficheiro das passwords, gerar MAC? (y/n)");
+				ans = sc.nextLine();
+				if (ans.equals("y")){
+					fos = new FileOutputStream (pwsMac);
+					mac.update(usersArray);
+					macArray = mac.doFinal();
+					fos.write(macArray);
+					fos.close();
+					System.out.println("Ficheiro MAC criado com SUCESSO!");
+					return true;
+				}
+				else if (ans.equals("n")){
+					System.err.println("O servidor vai ser encerrado!");
+					return false;
+				}
+				else
+					System.out.println("Responda apenas com os caracteres 'y' ou 'n'.");
+			}
+		}
+		else{
 			//le o mac array do ficheiro
 			macArray = new byte [(int)userPwdMac.length()];
 			fis = new FileInputStream (userPwdMac);
@@ -1334,8 +1391,6 @@ public class PersistentFiles {
 				return false;
 			}
 		}
-		System.err.println("Nao existe ficheiro MAC das passwords!");
-		return false;
 	}
 
 	public boolean verifyGroupMacs(Mac mac, String groupname, String groupsDir) throws IOException {
@@ -1360,6 +1415,7 @@ public class PersistentFiles {
 					macArray = mac.doFinal();
 					fos.write(macArray);
 					fos.close();
+					System.out.println("Ficheiro MAC criado com SUCESSO!");
 					return true;
 				}
 				else if (ans.equals("n")){

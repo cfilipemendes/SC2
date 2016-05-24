@@ -3,6 +3,9 @@ package domain.server;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+
 import javax.crypto.Mac;
 
 /***************************************************************************
@@ -260,9 +263,10 @@ public class server_skell {
 	 * vai buscar a ultima coisa que foi enviada ou recebida para cada contacto
 	 * @param username nome do utilizador autenticado
 	 * @param outStream stream de dados do socket 
+	 * @throws KeyStoreException 
 	 */
-	public void doR0operation(String username, ObjectOutputStream outStream, Mac mac) {
-		files.getLatestConvs(username,outStream, mac);
+	public void doR0operation(String username, ObjectOutputStream outStream, Mac mac, KeyStore kstore) throws KeyStoreException {
+		files.getLatestConvs(username,outStream, mac, kstore);
 	}
 
 	/**
@@ -272,11 +276,12 @@ public class server_skell {
 	 * @param outStream stream de dados do socket
 	 * @param user boolean para controlar se o contacto escolhido e um utilizador ou um grupo
 	 * @return 1 em caso de sucesso
+	 * @throws KeyStoreException 
 	 */
-	public int doR1operation(String username, String contact, ObjectOutputStream outStream,boolean user) {
+	public int doR1operation(String username, String contact, ObjectOutputStream outStream,boolean user, KeyStore kstore) throws KeyStoreException {
 		if (user)
-			return files.getContactConv(username,contact,outStream,user);
-		return files.getContactConv(username,contact,outStream,user);
+			return files.getContactConv(username,contact,outStream,user,kstore);
+		return files.getContactConv(username,contact,outStream,user,kstore);
 	}
 
 	/**
@@ -285,9 +290,10 @@ public class server_skell {
 	 * @param fich nome do ficheiro pretendido
 	 * @return 1 caso seja feito com sucesso 
 	 * @return -10 caso o ficheiro nao exista
+	 * @throws KeyStoreException 
 	 */
-	public int doR2operation(String from,String contact, String fich,ObjectOutputStream outStream,boolean user) {
-		return files.getFile(from,contact,fich,outStream,user);
+	public int doR2operation(String from,String contact, String fich,ObjectOutputStream outStream,boolean user,KeyStore kstore) throws KeyStoreException {
+		return files.getFile(from,contact,fich,outStream,user,kstore);
 	}
 
 	/**
