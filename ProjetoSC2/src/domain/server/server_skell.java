@@ -3,8 +3,6 @@ package domain.server;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.Scanner;
-
 import javax.crypto.Mac;
 
 /***************************************************************************
@@ -28,8 +26,8 @@ public class server_skell {
 	 * @param sc Scanner
 	 * @throws IOException 
 	 */
-	public server_skell (String usersFile, String groupsDir, String usersDir, Mac mac, Scanner sc) throws IOException{
-		files = new PersistentFiles(usersFile,groupsDir,usersDir, mac, sc);
+	public server_skell (String usersFile, String groupsDir, String usersDir, Mac mac) throws IOException{
+		files = new PersistentFiles(usersFile,groupsDir,usersDir, mac);
 	}
 
 	/**

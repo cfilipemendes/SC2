@@ -39,6 +39,7 @@ public class PersistentFiles {
 	private String usersDir;
 	private Date data;
 	private SimpleDateFormat sdf;
+	private Scanner sc = new Scanner (System.in);
 
 	/**
 	 * construtor de PersistentFiles
@@ -50,9 +51,10 @@ public class PersistentFiles {
 	 * @param sc Scanner
 	 * @throws IOException 
 	 */
-	public PersistentFiles(String usersFile, String groupsDir, String usersDir, Mac mac, Scanner sc) throws IOException {
+	public PersistentFiles(String usersFile, String groupsDir, String usersDir, Mac mac) throws IOException {
 		this.usersFile = usersFile;
 		users = new File(usersFile + ".txt");
+		String ans;
 		File userPwdMac = new File (usersFile + "MAC");
 		File aux;
 		FileInputStream fis;
@@ -76,7 +78,7 @@ public class PersistentFiles {
 			if (!userPwdMac.exists()){
 				while(true){
 					System.out.println("Nao existe MAC a proteger o ficheiro das passwords, gerar MAC? (y/n)");
-					String ans = sc.nextLine();
+					ans = sc.nextLine();
 					if (ans.equals("y")){
 						fos = new FileOutputStream (userPwdMac);
 						mac.update(usersArray);
@@ -118,7 +120,7 @@ public class PersistentFiles {
 				if (!groupMac.exists()){
 					while(true){
 						System.out.println("Nao existe MAC a proteger o grupo " + groupname + ", gerar MAC? (y/n)");
-						String ans = sc.nextLine();
+						ans = sc.nextLine();
 						if (ans.equals("y")){
 							fos = new FileOutputStream (groupMac);
 							mac.update(usersArray);
@@ -1323,23 +1325,24 @@ public class PersistentFiles {
 			fis.close();
 			mac.update(usersArray);
 			macArrayAux = mac.doFinal();
-			if (Arrays.equals(macArray, macArrayAux))
+			if (Arrays.equals(macArray, macArrayAux)){
 				System.out.println("MAC do ficheiro das passwords correcto!");
+				return true;
+			}
 			else{
-				System.err.println("Mac do ficheiro das passwords incorrecto!");
+				System.err.println("MAC do ficheiro das passwords incorrecto!");
 				return false;
 			}
 		}
-		return true;
+		System.err.println("Nao existe ficheiro MAC das passwords!");
+		return false;
 	}
 
-	@SuppressWarnings("resource")
 	public boolean verifyGroupMacs(Mac mac, String groupname, String groupsDir) throws IOException {
 		byte [] macArray, macArrayAux, usersArray;
 		FileInputStream fis;
 		FileOutputStream fos;
-		Scanner sc = new Scanner (System.in);
-
+		String ans = null;
 		File groupMac = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + "MAC");
 		File group = new File (new File(".").getAbsolutePath() + "//" + groupsDir + "//" + groupname + "//" + groupname + ".txt");
 		fis = new FileInputStream (group);
@@ -1350,7 +1353,7 @@ public class PersistentFiles {
 		if (!groupMac.exists()){
 			while(true){
 				System.out.println("Nao existe MAC a proteger o grupo " + groupname + ", gerar MAC? (y/n)");
-				String ans = sc.nextLine();
+				ans = sc.nextLine();
 				if (ans.equals("y")){
 					fos = new FileOutputStream (groupMac);
 					mac.update(usersArray);
@@ -1367,7 +1370,6 @@ public class PersistentFiles {
 					System.out.println("Responda apenas com os caracteres 'y' ou 'n'.");
 			}
 		}
-		sc.close();
 
 		//le o mac array do ficheiro
 		macArray = new byte [(int)groupMac.length()];

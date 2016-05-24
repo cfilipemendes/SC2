@@ -11,7 +11,6 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.util.Scanner;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -72,17 +71,12 @@ public class myWhatsServer {
 		mac = Mac.getInstance("HmacSHA256");
 		mac.init(keyMac);
 
-		//inicializa o scanner
-		Scanner sc = new Scanner (System.in);
-
 		//cria um skell do servidor
-		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR, mac, sc);
-
+		skell = new server_skell(USERS_PWS_FILE,GROUPS_DIR, USERS_DIR, mac);
+		
 		//Se os MAC's nao estiverem correctos
-		if (!skell.verifyPwdMacs(mac,USERS_PWS_FILE)){
-			sc.close();
+		if (!skell.verifyPwdMacs(mac,USERS_PWS_FILE))
 			return;
-		}
 
 		while(true) {
 			try {
